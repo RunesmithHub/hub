@@ -37,7 +37,7 @@ public sealed class BuildCommandsTests : IDisposable
         Assert.Contains("https://feed.example/index.json", await File.ReadAllTextAsync(_folder.Combine("build", NuGetConfigWriter.FileName), TestContext.Current.CancellationToken), StringComparison.Ordinal);
         var outputs = await File.ReadAllLinesAsync(_folder.Combine("github-output"), TestContext.Current.CancellationToken);
         Assert.Equal(
-            [$"plugin-root={root}", $"implementation={Path.Combine(root, "Lumen.Sample", "Lumen.Sample.csproj")}", $"properties={_folder.Combine("build", "hub-build.rsp")}", "dotnet-sdk=10.0.400"],
+            [$"plugin-root={root}", $"implementation={Path.Combine(root, "Lumen.Sample", "Lumen.Sample.csproj")}", $"properties={_folder.Combine("build", "hub-build.rsp")}", "dotnet-sdk=10.0.401"],
             outputs);
     }
 

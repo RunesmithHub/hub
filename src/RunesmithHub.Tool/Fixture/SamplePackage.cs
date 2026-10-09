@@ -8,7 +8,7 @@ namespace RunesmithHub.Tool.Fixture;
 /// <summary>Builds the developer manifest and a package with placeholder assemblies for a sample version.</summary>
 internal static class SamplePackage
 {
-    public const string Sdk = "10.0.400";
+    public const string Sdk = "10.0.401";
 
     public static string Commit(SamplePlugin plugin, SampleVersion version) => Hashes.Sha256(Encoding.UTF8.GetBytes($"{plugin.Id}@{version.Version}"))[..40];
 

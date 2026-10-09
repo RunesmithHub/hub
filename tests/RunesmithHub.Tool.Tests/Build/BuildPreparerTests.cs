@@ -55,7 +55,7 @@ public sealed class BuildPreparerTests : IDisposable
         var properties = await File.ReadAllTextAsync(plan.Properties, TestContext.Current.CancellationToken);
         Assert.Equal(SamplePlugin.Id, plan.Id);
         Assert.Equal("1.0.0", plan.Version);
-        Assert.Equal("10.0.400", plan.DotnetSdk);
+        Assert.Equal("10.0.401", plan.DotnetSdk);
         Assert.Equal("0.1.0", plan.RunesmithSdk);
         Assert.Equal(Path.Combine(Root, "Lumen.Sample", "Lumen.Sample.csproj"), plan.Projects.Implementation);
         Assert.Contains("<add key=\"runesmith-hub\" value=\"https://nuget.runesmith.dev/index.json\" />", config, StringComparison.Ordinal);
