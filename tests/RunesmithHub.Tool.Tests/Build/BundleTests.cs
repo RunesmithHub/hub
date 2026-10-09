@@ -87,13 +87,33 @@ public sealed class BundleTests : IDisposable
     }
 
     [Fact]
+    public async Task AcceptsAnAssemblyFromASignedPackage()
+    {
+        using var signed = NuGetPackage.Open(SignedNuGet.Bytes());
+        var source = _folder.Combine("System.Data.DataSetExtensions.dll");
+        File.WriteAllBytes(source, signed.ReadFile(SignedNuGet.AssemblyPath)!);
+        var cache = Directory.CreateDirectory(_folder.Combine("cache")).FullName;
+        File.WriteAllBytes(Path.Combine(cache, "system.data.datasetextensions.4.5.0.nupkg"), SignedNuGet.Bytes());
+        var problems = new List<string>();
+
+        var packages = await new BundleVerifier(new FolderNuGetPackageSource(cache, null)).VerifyAsync(
+            [new BundleItem("lib/System.Data.DataSetExtensions.dll", source, SignedNuGet.Id, SignedNuGet.Version, SignedNuGet.AssemblyPath)],
+            [new LockedPackage(SignedNuGet.Id, SignedNuGet.Version, SignedNuGet.ContentHash)],
+            problems,
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(problems);
+        Assert.Equal(SignedNuGet.Id, Assert.Single(packages).Id);
+    }
+
+    [Fact]
     public async Task RejectsAPackageWithAnotherHashThanTheLockFile()
     {
         var package = TestNuGet.Package("Markdig", "0.40.0", "BSD-2-Clause", ("lib/net8.0/Markdig.dll", Markdig));
 
         var (_, problems) = await VerifyAsync(package, TestNuGet.ContentHash([9]));
 
-        Assert.Equal(["Markdig 0.40.0 from the feed does not have the SHA-512 its lock file records."], problems);
+        Assert.Equal(["Markdig 0.40.0 from the feed does not have the content hash its lock file records."], problems);
     }
 
     [Fact]

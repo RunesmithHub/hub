@@ -12,8 +12,8 @@ internal sealed record ProvenanceResult(byte[]? Sbom, IReadOnlyList<SbomComponen
 
 /// <summary>
 /// Checks what the build says about where the package's files came from, trusting none of it: every file from a NuGet package must be byte
-/// for byte a file in the package the plugin's lock files pin at the release commit, with the SHA-512 they record. The SBOM and notices are
-/// then written from what was verified and must equal the package's own.
+/// for byte a file in the package the plugin's lock files pin at the release commit, with the content hash they record. The SBOM and notices
+/// are then written from what was verified and must equal the package's own.
 /// </summary>
 internal sealed class BundleProvenance(INuGetPackageSource packages)
 {
@@ -130,7 +130,7 @@ internal sealed class BundleProvenance(INuGetPackageSource packages)
                 package = NuGetPackage.Open(await packages.GetAsync(pinned.Id, pinned.Version, cancellationToken).ConfigureAwait(false));
                 if (!string.Equals(package.ContentHash, pinned.ContentHash, StringComparison.Ordinal))
                 {
-                    problems.Add(AnalysisProblem.Error(ProblemCodes.BundledProvenance, $"{pinned.Id} {pinned.Version} from the feed does not have the SHA-512 its lock file records.", pinned.Id));
+                    problems.Add(AnalysisProblem.Error(ProblemCodes.BundledProvenance, $"{pinned.Id} {pinned.Version} from the feed does not have the content hash its lock file records.", pinned.Id));
                     package.Dispose();
                     package = null;
                 }

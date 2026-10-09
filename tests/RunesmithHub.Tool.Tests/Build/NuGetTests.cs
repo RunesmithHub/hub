@@ -106,6 +106,17 @@ public sealed class NuGetTests : IDisposable
     }
 
     [Fact]
+    public void ComputesTheContentHashOfASignedPackageWithoutItsSignature()
+    {
+        var bytes = SignedNuGet.Bytes();
+
+        using var package = NuGetPackage.Open(bytes);
+
+        Assert.Equal(SignedNuGet.ContentHash, package.ContentHash);
+        Assert.NotEqual(TestNuGet.ContentHash(bytes), package.ContentHash);
+    }
+
+    [Fact]
     public void RejectsBytesThatAreNotAPackage() => Assert.Throws<ToolException>(() => NuGetPackage.Open("not a zip"u8.ToArray()));
 
     [Fact]

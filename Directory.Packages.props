@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup Label="Tool">
     <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
+    <PackageVersion Include="NuGet.Packaging" Version="7.9.0" />
     <PackageVersion Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaSharpVersion)" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />

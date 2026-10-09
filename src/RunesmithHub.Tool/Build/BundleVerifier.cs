@@ -4,7 +4,7 @@ namespace RunesmithHub.Tool.Build;
 
 /// <summary>
 /// Checks that every bundled file from a NuGet package is byte for byte the file in the package the lock file pins: the package is fetched
-/// from the feed its source mapping assigns and must have the SHA-512 the lock file records.
+/// from the feed its source mapping assigns and must have the content hash the lock file records.
 /// </summary>
 internal sealed class BundleVerifier(INuGetPackageSource packages)
 {
@@ -28,7 +28,7 @@ internal sealed class BundleVerifier(INuGetPackageSource packages)
             using var package = NuGetPackage.Open(await packages.GetAsync(id, version, cancellationToken).ConfigureAwait(false));
             if (!string.Equals(package.ContentHash, pinned.ContentHash, StringComparison.Ordinal))
             {
-                problems.Add($"{id} {version} from the feed does not have the SHA-512 its lock file records.");
+                problems.Add($"{id} {version} from the feed does not have the content hash its lock file records.");
                 continue;
             }
 

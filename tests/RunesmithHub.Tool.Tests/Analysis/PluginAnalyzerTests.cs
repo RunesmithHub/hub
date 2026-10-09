@@ -169,7 +169,7 @@ public sealed class PluginAnalyzerTests : IDisposable
 
         var report = (await AnalyseAsync(package, package.WriteSource(_folder.Combine("source")), otherBytes)).Report;
 
-        Assert.Contains(report.Problems, problem => problem.Message == "Markdig 0.40.0 from the feed does not have the SHA-512 its lock file records.");
+        Assert.Contains(report.Problems, problem => problem.Message == "Markdig 0.40.0 from the feed does not have the content hash its lock file records.");
         Assert.Contains(report.Problems, problem => problem.Message == "lib/native/linux-x64/libsample.so is not runtimes/linux-x64/native/libsample.so of any package the lock files pin.");
     }
 

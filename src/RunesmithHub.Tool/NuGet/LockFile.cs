@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace RunesmithHub.Tool.NuGet;
 
-/// <summary>A package NuGet's lock file pins, with the base64 SHA-512 of the package file it checked.</summary>
+/// <summary>A package NuGet's lock file pins, with NuGet's content hash of the package it checked.</summary>
 internal sealed record LockedPackage(string Id, string Version, string ContentHash);
 
 /// <summary>Reads a project's <c>packages.lock.json</c>.</summary>

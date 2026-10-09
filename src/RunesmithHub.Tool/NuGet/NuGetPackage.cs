@@ -1,7 +1,8 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Linq;
+using NuGet.Packaging;
+using NuGet.Packaging.Signing;
 
 namespace RunesmithHub.Tool.NuGet;
 
@@ -17,12 +18,12 @@ internal sealed class NuGetPackage : IDisposable
 
     private NuGetPackage(byte[] bytes, ZipArchive archive)
     {
-        ContentHash = Convert.ToBase64String(SHA512.HashData(bytes));
+        ContentHash = ContentHashOf(bytes);
         _archive = archive;
         Nuspec = ReadNuspec(archive);
     }
 
-    /// <summary>Gets the base64 SHA-512 of the package file, as lock files record it.</summary>
+    /// <summary>Gets NuGet's content hash, as lock files record it: the base64 SHA-512 of the package without its signature.</summary>
     public string ContentHash { get; }
 
     private XElement Nuspec { get; }
@@ -34,7 +35,7 @@ internal sealed class NuGetPackage : IDisposable
         {
             return new NuGetPackage(bytes, new ZipArchive(new MemoryStream(bytes, writable: false), ZipArchiveMode.Read));
         }
-        catch (Exception exception) when (exception is InvalidDataException or XmlException)
+        catch (Exception exception) when (exception is InvalidDataException or XmlException or SignatureException)
         {
             throw new ToolException($"Not a valid NuGet package: {exception.Message}", exception);
         }
@@ -86,6 +87,12 @@ internal sealed class NuGetPackage : IDisposable
 
     private string? Metadata(string name) =>
         Nuspec.Elements().FirstOrDefault(element => element.Name.LocalName == name)?.Value.Trim() is { Length: > 0 } value ? value : null;
+
+    private static string ContentHashOf(byte[] bytes)
+    {
+        using var reader = new PackageArchiveReader(new MemoryStream(bytes, writable: false));
+        return reader.GetContentHash(CancellationToken.None);
+    }
 
     private static XElement ReadNuspec(ZipArchive archive)
     {

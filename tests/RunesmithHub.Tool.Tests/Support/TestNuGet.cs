@@ -35,7 +35,7 @@ internal static class TestNuGet
         return buffer.ToArray();
     }
 
-    /// <summary>Gets the base64 SHA-512 a lock file records for package bytes.</summary>
+    /// <summary>Gets the content hash a lock file records for unsigned package bytes: their base64 SHA-512.</summary>
     public static string ContentHash(byte[] package) => Convert.ToBase64String(SHA512.HashData(package));
 
     /// <summary>Writes a lock file pinning the packages, all under one target framework.</summary>
