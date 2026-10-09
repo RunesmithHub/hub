@@ -6,16 +6,18 @@ namespace RunesmithHub.Tool.Build;
 
 /// <summary>
 /// Decides which assemblies of the implementation's build output the package bundles. Host-shared assemblies and other plugins' contracts
-/// are left out because Runesmith supplies them; every bundled file must come from a restored package or a project in the repository.
+/// are left out because Runesmith supplies them, and so are package assets the build left out because the shared framework supplies them.
+/// Every bundled file must come from a restored package or a project in the repository.
 /// </summary>
 internal static class BundleCollector
 {
     private const string LibFolder = "lib/";
 
     /// <summary>Lists the files to bundle, sorted by package path, adding a problem for each file of unknown or missing origin.</summary>
-    public static IReadOnlyList<BundleItem> Collect(ProjectOutput implementation, string contractsAssemblyName, List<string> problems)
+    public static IReadOnlyList<BundleItem> Collect(ProjectOutput implementation, string contractsAssemblyName, SharedFrameworks frameworks, List<string> problems)
     {
         ArgumentNullException.ThrowIfNull(implementation);
+        ArgumentNullException.ThrowIfNull(frameworks);
         ArgumentNullException.ThrowIfNull(problems);
         var items = new Dictionary<string, BundleItem>(StringComparer.OrdinalIgnoreCase);
         var own = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { implementation.AssemblyFile, contractsAssemblyName + ".dll" };
@@ -34,6 +36,10 @@ internal static class BundleCollector
                     excluded.Add(fileName);
                     continue;
                 }
+
+                if (!library.IsProject && !File.Exists(Path.Combine(implementation.Directory, fileName))
+                    && frameworks.Supplies(library.Name, library.Version, fileName, implementation.Assets.RestoredFile(library, asset)))
+                    continue;
 
                 Add(items, implementation, library, LibFolder + fileName, fileName, asset, problems);
             }

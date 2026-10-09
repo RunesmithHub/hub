@@ -13,7 +13,8 @@ namespace RunesmithHub.Tool.Build;
 /// Turns a restored and built plugin into everything the hub publishes for a version: the package, the re-encoded images, the SBOM, the
 /// source archive and the list of every file's hash.
 /// </summary>
-internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver archiver)
+/// <param name="dotnetRoots">The .NET installations whose targeting packs say which assemblies the shared frameworks supply.</param>
+internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver archiver, IReadOnlyList<string> dotnetRoots)
 {
     private const string LibFolder = "lib/";
     private static readonly int[] PackagedIconSizes = [64, 128];
@@ -29,7 +30,7 @@ internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver a
         var implementation = ProjectOutput.Locate(source.ImplementationProject);
 
         var problems = new List<string>();
-        var items = BundleCollector.Collect(implementation, contracts.AssemblyName, problems);
+        var items = BundleCollector.Collect(implementation, contracts.AssemblyName, SharedFrameworks.Locate(implementation.Assets, dotnetRoots), problems);
         var locked = source.LockedPackages();
         var bundled = await verifier.VerifyAsync(items, locked, problems, cancellationToken).ConfigureAwait(false);
         if (problems.Count > 0)

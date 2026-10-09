@@ -42,7 +42,7 @@ public sealed class BundleTests : IDisposable
     {
         var problems = new List<string>();
 
-        var items = BundleCollector.Collect(Output(All), "Lumen.Todo.Contracts", problems);
+        var items = BundleCollector.Collect(Output(All), "Lumen.Todo.Contracts", SharedFrameworks.None, problems);
 
         Assert.Empty(problems);
         Assert.Equal(["lib/Lumen.Helpers.dll", "lib/Markdig.dll", "lib/native/linux-x64/libgit2.so"], items.Select(item => item.PackagePath));
@@ -56,7 +56,7 @@ public sealed class BundleTests : IDisposable
     {
         var problems = new List<string>();
 
-        BundleCollector.Collect(Output([.. All.Where(file => file != "Markdig.dll"), "Sneaky.dll"]), "Lumen.Todo.Contracts", problems);
+        BundleCollector.Collect(Output([.. All.Where(file => file != "Markdig.dll"), "Sneaky.dll"]), "Lumen.Todo.Contracts", SharedFrameworks.None, problems);
 
         Assert.Equal(2, problems.Count);
         Assert.Contains(problems, problem => problem.StartsWith("Markdig.dll from Markdig 0.40.0 is not in the build output; set EnableDynamicLoading", StringComparison.Ordinal));
@@ -66,7 +66,7 @@ public sealed class BundleTests : IDisposable
     private async Task<(IReadOnlyList<BundledPackage> Packages, List<string> Problems)> VerifyAsync(byte[] package, string lockedHash)
     {
         var problems = new List<string>();
-        var items = BundleCollector.Collect(Output(All), "Lumen.Todo.Contracts", problems).Where(item => item.PackageId == "Markdig").ToList();
+        var items = BundleCollector.Collect(Output(All), "Lumen.Todo.Contracts", SharedFrameworks.None, problems).Where(item => item.PackageId == "Markdig").ToList();
         Directory.CreateDirectory(_folder.Combine("cache"));
         File.WriteAllBytes(_folder.Combine("cache", "markdig.0.40.0.nupkg"), package);
         var verifier = new BundleVerifier(new FolderNuGetPackageSource(_folder.Combine("cache"), null));

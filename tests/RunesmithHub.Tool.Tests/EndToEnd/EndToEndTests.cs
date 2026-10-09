@@ -12,7 +12,7 @@ public sealed class EndToEndTests(BuiltSamplePlugin sample) : IClassFixture<Buil
 {
     private const string Repository = "https://github.com/lumen/sample";
 
-    private static PackageAssembler Assembler() => new(new BundleVerifier(new NoPackages()), new SourceArchiver(new GitCheckout(new SystemProcessRunner())));
+    private static PackageAssembler Assembler() => new(new BundleVerifier(new NoPackages()), new SourceArchiver(new GitCheckout(new SystemProcessRunner())), SharedFrameworks.DefaultRoots(Environment.GetEnvironmentVariable));
 
     private Task<PackageResult> PackageAsync(string root, string output, bool archiveSource = true) =>
         Assembler().AssembleAsync(new PackageRequest(root, sample.Folder(output), sample.Commit, "https://github.com/RunesmithHub/registry/actions/runs/1", "10.0.400", archiveSource), TestContext.Current.CancellationToken);

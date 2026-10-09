@@ -88,7 +88,8 @@ internal static class BuildCommands
                 result.GetValue(sdk) ?? await DotnetSdkAsync(context, root, cancellationToken).ConfigureAwait(false), ArchiveSource: true)
             { Limits = limits };
             var git = new GitCheckout(context.Services.Processes);
-            var assembler = new PackageAssembler(new BundleVerifier(PackageSource(context, result.GetValue(feed), result.GetValue(cache))), new SourceArchiver(git));
+            var assembler = new PackageAssembler(
+                new BundleVerifier(PackageSource(context, result.GetValue(feed), result.GetValue(cache))), new SourceArchiver(git), SharedFrameworks.DefaultRoots(context.GetEnvironmentVariable));
             var package = await assembler.AssembleAsync(request, cancellationToken).ConfigureAwait(false);
             await writer.WriteLineAsync($"Wrote {package.PackageFile}; {HashList.FileName} lists all {package.Hashes.Files.Count} output files.").ConfigureAwait(false);
             return 0;
