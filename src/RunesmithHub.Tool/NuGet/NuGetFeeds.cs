@@ -1,8 +1,8 @@
 namespace RunesmithHub.Tool.NuGet;
 
 /// <summary>
-/// The two package sources hub builds use and the mapping between them: <c>Runesmith.*</c> and <c>RunesmithHub.*</c> come only from the hub
-/// feed, everything else from nuget.org.
+/// The two package sources hub builds use and the mapping between them: <c>Runesmith.*</c>, <c>RunesmithHub.*</c> and <c>HammerUI</c> come
+/// only from the hub feed, everything else from nuget.org.
 /// </summary>
 internal static class NuGetFeeds
 {
@@ -20,11 +20,13 @@ internal static class NuGetFeeds
     public const string NuGetOrgKey = "nuget.org";
 
     /// <summary>Gets the package ID patterns mapped to the hub feed.</summary>
-    public static IReadOnlyList<string> HubPatterns { get; } = ["Runesmith.*", "RunesmithHub.*"];
+    public static IReadOnlyList<string> HubPatterns { get; } = ["Runesmith.*", "RunesmithHub.*", "HammerUI"];
 
     /// <summary>Gets whether a package comes from the hub feed rather than nuget.org.</summary>
     public static bool IsHubPackage(string id) =>
-        HubPatterns.Any(pattern => id.StartsWith(pattern.TrimEnd('*'), StringComparison.OrdinalIgnoreCase));
+        HubPatterns.Any(pattern => pattern.EndsWith('*')
+            ? id.StartsWith(pattern.TrimEnd('*'), StringComparison.OrdinalIgnoreCase)
+            : id.Equals(pattern, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Gets whether a package is another plugin's contracts package, which a plugin never bundles.</summary>
     public static bool IsContractsPackage(string id) =>

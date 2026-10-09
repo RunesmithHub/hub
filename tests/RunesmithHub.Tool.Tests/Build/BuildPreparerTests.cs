@@ -59,7 +59,7 @@ public sealed class BuildPreparerTests : IDisposable
         Assert.Equal("0.1.0", plan.RunesmithSdk);
         Assert.Equal(Path.Combine(Root, "Lumen.Sample", "Lumen.Sample.csproj"), plan.Projects.Implementation);
         Assert.Contains("<add key=\"runesmith-hub\" value=\"https://nuget.runesmith.dev/index.json\" />", config, StringComparison.Ordinal);
-        Assert.Contains("<packageSource key=\"runesmith-hub\">\n      <package pattern=\"Runesmith.*\" />\n      <package pattern=\"RunesmithHub.*\" />", config, StringComparison.Ordinal);
+        Assert.Contains("<packageSource key=\"runesmith-hub\">\n      <package pattern=\"Runesmith.*\" />\n      <package pattern=\"RunesmithHub.*\" />\n      <package pattern=\"HammerUI\" />", config, StringComparison.Ordinal);
         Assert.Contains("<packageSource key=\"nuget.org\">\n      <package pattern=\"*\" />", config, StringComparison.Ordinal);
         foreach (var expected in (string[])["\"-p:Deterministic=true\"", "\"-p:ContinuousIntegrationBuild=true\"", "\"-p:RestoreLockedMode=true\"", $"\"-p:PathMap={Root}=/_/\"",
             "\"-p:RunesmithSdkVersion=0.1.0\"", "\"-p:AssemblyVersion=1.0.0.0\"", "\"-p:FileVersion=1.0.0.0\"", $"\"-p:RestoreConfigFile={plan.NuGetConfig}\""])

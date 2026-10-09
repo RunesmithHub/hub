@@ -149,10 +149,12 @@ public sealed class NuGetTests : IDisposable
     }
 
     [Fact]
-    public void MapsOnlyRunesmithPrefixesToTheHubFeed()
+    public void MapsTheRunesmithPrefixesAndHammerUIToTheHubFeed()
     {
         Assert.True(NuGetFeeds.IsHubPackage("Runesmith.Sdk"));
         Assert.True(NuGetFeeds.IsHubPackage("RunesmithHub.Lumen.Todo.Contracts"));
+        Assert.True(NuGetFeeds.IsHubPackage("HammerUI"));
+        Assert.False(NuGetFeeds.IsHubPackage("HammerUI.Extras"));
         Assert.False(NuGetFeeds.IsHubPackage("RunesmithTools"));
         Assert.True(NuGetFeeds.IsContractsPackage("RunesmithHub.Lumen.Todo.Contracts"));
         Assert.False(NuGetFeeds.IsContractsPackage("RunesmithHub.Protocol"));
