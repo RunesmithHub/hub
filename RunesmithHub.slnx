@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RunesmithHub.Protocol/RunesmithHub.Protocol.csproj" />
+    <Project Path="src/RunesmithHub.Tool/RunesmithHub.Tool.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RunesmithHub.Protocol.Tests/RunesmithHub.Protocol.Tests.csproj" />
+    <Project Path="tests/RunesmithHub.Tool.Tests/RunesmithHub.Tool.Tests.csproj" />
+  </Folder>
+</Solution>

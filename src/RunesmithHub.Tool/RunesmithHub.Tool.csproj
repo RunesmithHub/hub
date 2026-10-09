@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>rshub</ToolCommandName>
+    <PackageId>RunesmithHub.Tool</PackageId>
+    <Description>The Runesmith Plugin Hub tool: checks, builds, packages and analyses plugins, runs the registry's automation, manages keys, and writes development fixtures.</Description>
+    <PackageTags>runesmith;plugins</PackageTags>
+    <AssemblyName>rshub</AssemblyName>
+    <RootNamespace>RunesmithHub.Tool</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RunesmithHub.Protocol\RunesmithHub.Protocol.csproj" />
+    <InternalsVisibleTo Include="RunesmithHub.Tool.Tests" />
+  </ItemGroup>
+</Project>

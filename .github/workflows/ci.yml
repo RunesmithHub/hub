@@ -1,0 +1,53 @@
+# Builds, checks formatting and runs the tests on Linux and Windows, on each pull request and each push to main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build and test on ${{ matrix.system }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: Linux
+            runner: ubuntu-24.04
+          - system: Windows
+            runner: windows-2025
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build RunesmithHub.slnx -warnaserror
+
+      - name: Check formatting
+        run: dotnet format RunesmithHub.slnx --verify-no-changes --no-restore
+
+      - name: Test
+        run: dotnet test --solution RunesmithHub.slnx --no-build

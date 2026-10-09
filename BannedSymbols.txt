@@ -1,0 +1,4 @@
+P:System.DateTime.Now;Reads the system clock directly. Take a TimeProvider so callers and tests control time.
+P:System.DateTime.UtcNow;Reads the system clock directly. Take a TimeProvider so callers and tests control time.
+P:System.DateTimeOffset.Now;Reads the system clock directly. Take a TimeProvider so callers and tests control time.
+P:System.DateTimeOffset.UtcNow;Reads the system clock directly. Take a TimeProvider so callers and tests control time.

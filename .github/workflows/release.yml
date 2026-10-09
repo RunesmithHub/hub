@@ -1,0 +1,94 @@
+# When a version tag such as v0.1.0 is pushed: packs RunesmithHub.Protocol and RunesmithHub.Tool with the tag's version and pushes them to
+# the hub feed.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  packages:
+    name: Pack the protocol library and the tool
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Pack
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dotnet pack src/RunesmithHub.Protocol --configuration Release --output artifacts/packages -warnaserror -p:Version="$version"
+          dotnet pack src/RunesmithHub.Tool --configuration Release --output artifacts/packages -warnaserror -p:Version="$version"
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hub-packages
+          path: artifacts/packages/*.nupkg
+          retention-days: 7
+          if-no-files-found: error
+
+  hub-feed:
+    name: Push the packages to the hub feed
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: hub-feed
+    permissions:
+      contents: read
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: hub-packages
+          path: packages
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Sleet
+        run: dotnet tool install sleet --version 7.2.0 --tool-path "$RUNNER_TEMP/tools"
+
+      # Holds the bucket keys, so it lives outside the workspace and is removed after the push.
+      - name: Write the Sleet configuration
+        env:
+          HUB_FEED_ACCOUNT_ID: ${{ vars.HUB_FEED_ACCOUNT_ID }}
+          HUB_FEED_BUCKET: ${{ vars.HUB_FEED_BUCKET }}
+          HUB_FEED_ACCESS_KEY_ID: ${{ secrets.HUB_FEED_ACCESS_KEY_ID }}
+          HUB_FEED_SECRET_ACCESS_KEY: ${{ secrets.HUB_FEED_SECRET_ACCESS_KEY }}
+        run: |
+          umask 077
+          jq -n \
+            --arg serviceURL "https://$HUB_FEED_ACCOUNT_ID.r2.cloudflarestorage.com" \
+            --arg bucketName "$HUB_FEED_BUCKET" \
+            --arg accessKeyId "$HUB_FEED_ACCESS_KEY_ID" \
+            --arg secretAccessKey "$HUB_FEED_SECRET_ACCESS_KEY" \
+            '{sources: [{name: "hub-feed", type: "s3", serviceURL: $serviceURL, bucketName: $bucketName, disablePayloadSigning: true,
+              path: "https://nuget.runesmith.dev/", baseURI: "https://nuget.runesmith.dev/", accessKeyId: $accessKeyId, secretAccessKey: $secretAccessKey}]}' \
+            > "$RUNNER_TEMP/sleet.json"
+
+      # Without --force, a version already on the feed fails the push, so published packages never change.
+      - name: Push to the hub feed
+        run: '"$RUNNER_TEMP/tools/sleet" push packages --config "$RUNNER_TEMP/sleet.json" --source hub-feed'
+
+      - name: Remove the Sleet configuration
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/sleet.json"

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>RunesmithHub.Protocol</PackageId>
+    <Description>Formats, signing, index verification, version ranges and dependency resolution for the Runesmith Plugin Hub.</Description>
+    <PackageTags>runesmith;plugins</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <InternalsVisibleTo Include="RunesmithHub.Protocol.Tests" />
+  </ItemGroup>
+</Project>
