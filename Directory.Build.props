@@ -14,7 +14,7 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/RunesmithHub/hub</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RunesmithHub/hub</RepositoryUrl>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
