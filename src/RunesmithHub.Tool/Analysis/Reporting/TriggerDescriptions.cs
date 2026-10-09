@@ -11,7 +11,7 @@ internal static class TriggerDescriptions
         [ReviewTriggers.CapabilityAdded] = "It declares or uses a capability the previous version did not.",
         [ReviewTriggers.DynamicCode] = "It loads or generates code, or reflects over private members.",
         [ReviewTriggers.NativeCode] = "It runs native code or ships a native library.",
-        [ReviewTriggers.NewNuGetPackage] = "It adds a NuGet package.",
+        [ReviewTriggers.NewNuGetPackage] = "It bundles a NuGet package that no earlier version bundled.",
         [ReviewTriggers.MaintainersChanged] = "The plugin's maintainers changed.",
         [ReviewTriggers.Heuristic] = "A review rule matched.",
         [ReviewTriggers.BuildLogic] = "Its build runs commands or custom tasks.",

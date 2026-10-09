@@ -35,7 +35,12 @@ public sealed class AnalyseCommandTests : IDisposable
     [Fact]
     public async Task WritesTheReportAndSummaryAndPrintsTheSummary()
     {
-        var (exitCode, output, error) = await AnalyseAsync(new TestPackage { Version = "1.0.1", Locked = [("Markdig", "0.40.0", "BSD-2-Clause")] });
+        var (exitCode, output, error) = await AnalyseAsync(new TestPackage
+        {
+            Version = "1.0.1",
+            Bundled = [("Markdig", Compiler.Compile("Markdig", "namespace Markdig { public sealed class Markdown { } }"), "Markdig", "0.40.0")],
+            Locked = [("Markdig", "0.40.0", "BSD-2-Clause")],
+        });
 
         Assert.True(exitCode == 0, error);
         using var report = JsonDocument.Parse(await File.ReadAllBytesAsync(_folder.Combine("out", AnalysisReport.FileName), TestContext.Current.CancellationToken));
@@ -47,7 +52,7 @@ public sealed class AnalyseCommandTests : IDisposable
         Assert.Equal(await File.ReadAllTextAsync(_folder.Combine("out", SummaryWriter.FileName), TestContext.Current.CancellationToken), output);
         Assert.False(File.Exists(_folder.Combine("out", PrivateFindings.FileName)));
         Assert.True(File.Exists(_folder.Combine("out", CycloneDxSbom.FileName)));
-        Assert.Contains("pkg:nuget/Markdig@0.40.0", Assert.Single(((FakeHttp)_tool.Http!).Requests).Body, StringComparison.Ordinal);
+        Assert.Contains("pkg:nuget/Markdig@0.40.0", Assert.Single(((FakeHttp)_tool.Http!).Requests, request => request.Body is not null).Body, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -64,6 +64,7 @@ public sealed class PluginAnalyzerTests : IDisposable
                 }
                 """,
             Capabilities = [("dynamic-code", "Loads language packs.")],
+            Bundled = [("Markdig", MarkdigImage, "Markdig", "0.40.0")],
             Locked = [("Markdig", "0.40.0", "BSD-2-Clause")],
         };
 
@@ -73,6 +74,28 @@ public sealed class PluginAnalyzerTests : IDisposable
         Assert.Equal(["capability-added", "dynamic-code", "new-nuget-package", "name-changed"], report.Triggers);
         Assert.Equal(["dynamic-code"], report.Capabilities!.Added);
         Assert.Contains(new DependencyChange("package", "Markdig", "added", null, "0.40.0"), report.Dependencies!.Changes);
+    }
+
+    [Fact]
+    public async Task SaysNothingOfNewPackagesWhenTheVersionBundlesNone()
+    {
+        var result = await AnalyseAsync(new TestPackage { Locked = [("Runesmith.Sdk", "0.1.0", null), ("Microsoft.CodeAnalysis.BannedApiAnalyzers", "5.6.0", "MIT")] });
+
+        Assert.Equal(["first-version"], result.Report.Triggers);
+        Assert.DoesNotContain("NuGet package that", SummaryWriter.Write(result.Report), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReviewsAPackageBundledForTheFirstTime()
+    {
+        var previous = new TestPackage { Locked = [("Markdig", "0.40.0", "BSD-2-Clause")] };
+        var current = previous with { Version = "1.0.1", Bundled = [("Markdig", MarkdigImage, "Markdig", "0.40.0")] };
+
+        var result = await AnalyseAsync(current, previous);
+
+        Assert.Equal(["new-nuget-package"], result.Report.Triggers);
+        Assert.Contains("- It bundles a NuGet package that no earlier version bundled.\n", SummaryWriter.Write(result.Report), StringComparison.Ordinal);
+        Assert.Equal(["first-version", "new-nuget-package"], (await AnalyseAsync(current with { Version = "1.0.0" })).Report.Triggers);
     }
 
     [Fact]

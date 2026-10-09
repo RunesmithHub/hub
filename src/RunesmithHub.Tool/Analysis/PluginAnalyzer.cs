@@ -84,7 +84,7 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
             FirstVersion = previous is null,
             Capabilities = CapabilityCheck.Union(manifest.Capabilities.Select(capability => capability.Id), detected),
             CapabilitiesAdded = previous is null ? [] : capabilities.Added,
-            NewPackages = dependencies.Changes.Any(change => change.Kind == "package" && change.Change == "added") || (previous is null && components.Count > 0),
+            NewPackages = BundlesNewPackage(components, previous),
             HeuristicMatched = matches is { Count: > 0 },
             BuildLogic = buildLogic.Count > 0,
             SizeGrowth = sizeGrowth,
@@ -113,6 +113,12 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
             Sbom = provenance.Sbom is { } sbom ? new ProducedFile(Hashes.Sha256(sbom), sbom.Length) : null,
         };
         return new AnalysisResult(report, matches, provenance.Sbom);
+    }
+
+    private static bool BundlesNewPackage(IReadOnlyList<SbomComponent> components, PackageSnapshot? previous)
+    {
+        var before = (previous?.Components ?? []).Where(component => component.Bundled).Select(component => component.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return components.Any(component => component.Bundled && !before.Contains(component.Id));
     }
 
     private static PackageSnapshot OpenPrevious(string path, PackageLimits limits)

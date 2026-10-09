@@ -12,6 +12,7 @@ internal sealed record TriggerFacts
 
     public IReadOnlyCollection<string> CapabilitiesAdded { get; init; } = [];
 
+    /// <summary>Gets whether the version bundles a NuGet package the previous version did not, or bundles any in a first version.</summary>
     public bool NewPackages { get; init; }
 
     public bool HeuristicMatched { get; init; }
