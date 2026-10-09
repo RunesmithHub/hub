@@ -84,6 +84,18 @@ public sealed class RegistrationValidatorTests : IDisposable
     }
 
     [Fact]
+    public async Task KeepsReservedPluginNamesForTheOfficialPublisher()
+    {
+        var community = await ValidateAsync(() => _registry.Publisher(Atlas()).Registration(AtlasRest("atlas.hub")));
+        var official = await ValidateAsync(() => _registry
+            .Publisher(Atlas("runesmith"))
+            .Registration(Samples.Registration("runesmith.hub", RepositoryId, "atlas-dev/atlas-rest", PluginTier.Official, RegistrationState.Registered, Author)));
+
+        Assert.Contains(community.Lines, line => line.File.Contains("atlas.hub", StringComparison.Ordinal) && line.Check == "Reserved names" && line.Level == CheckLevel.Fail);
+        Assert.Contains(official.Lines, line => line.File.Contains("runesmith.hub", StringComparison.Ordinal) && line.Check == "Reserved names" && line.Level == CheckLevel.Pass);
+    }
+
+    [Fact]
     public async Task FailsAForkPrivateOrMismatchedRepository()
     {
         var owner = _github.Users[AtlasId];

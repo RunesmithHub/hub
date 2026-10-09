@@ -13,6 +13,9 @@ internal sealed class RegistrationValidator(IGitHubReader github)
 {
     private const int MaxDisplayName = 60;
 
+    // Its records are bound to the RunesmithHub organization, which the ownership check enforces.
+    private const string OfficialPublisher = "runesmith";
+
     /// <param name="author">The pull request's author, by permanent ID and login.</param>
     public async Task<ValidationReport> ValidateAsync(
         IRegistryFiles head, IRegistryFiles baseFiles, IReadOnlyList<ChangedPath> changes, GitHubAccount author, CancellationToken cancellationToken)
@@ -118,7 +121,7 @@ internal sealed class RegistrationValidator(IGitHubReader github)
             format.Add("at least one maintainer is needed");
         if (isNew && registration.State != RegistrationState.Registered)
             format.Add("a new registration has the state registered");
-        if (isNew && registration.Tier != PluginTier.Unverified && !(registration.Tier == PluginTier.Official && id.Publisher == "runesmith"))
+        if (isNew && registration.Tier != PluginTier.Unverified && !(registration.Tier == PluginTier.Official && id.Publisher == OfficialPublisher))
             format.Add("a new registration is unverified (official only for the runesmith publisher)");
         if (isNew && registration.Limits is not null)
             format.Add("raised limits are set by an administrator");
@@ -128,7 +131,7 @@ internal sealed class RegistrationValidator(IGitHubReader github)
 
         if (isNew)
         {
-            Report(report, path, "Reserved names", reserved.Contains(id.Name) ? [$"\"{id.Name}\" is reserved"] : [], "The name is not reserved.");
+            Report(report, path, "Reserved names", reserved.Contains(id.Name) && id.Publisher != OfficialPublisher ? [$"\"{id.Name}\" is reserved"] : [], reserved.Contains(id.Name) ? "The name is reserved for the official publisher, which this is." : "The name is not reserved.");
             Similarity(report, path, [id.Name, registration.Id], existing.Where(other => other.Id != registration.Id).SelectMany(other => new[] { PluginId.Parse(other.Id).Name, other.Id }));
         }
 
