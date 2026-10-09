@@ -34,7 +34,7 @@ internal sealed class PackageSnapshot : IDisposable
     /// <summary>Gets every file's path in the package.</summary>
     public IReadOnlyList<string> Entries { get; }
 
-    /// <summary>Gets the assemblies under <c>lib/</c> that could be read, contracts and implementation first.</summary>
+    /// <summary>Gets the assemblies at any depth under <c>lib/</c>, outside the native folder, that could be read, contracts and implementation first.</summary>
     public IReadOnlyList<LoadedAssembly> Assemblies { get; private set; } = [];
 
     /// <summary>Gets the problems found while reading the assemblies and checking them against the manifest.</summary>
@@ -111,7 +111,7 @@ internal sealed class PackageSnapshot : IDisposable
 
     private static bool IsAssembly(string entry) =>
         entry.StartsWith(LibFolder, StringComparison.Ordinal) && !entry.StartsWith(PackageEntryRules.NativePrefix, StringComparison.Ordinal)
-        && entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+        && RelativePaths.HasExtension(entry, ".dll", ".exe");
 
     private int RoleOrder(string entry) => (int)RoleOf(entry[LibFolder.Length..]);
 

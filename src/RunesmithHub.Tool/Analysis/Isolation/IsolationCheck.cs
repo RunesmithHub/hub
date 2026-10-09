@@ -23,7 +23,8 @@ internal static class IsolationCheck
         var manifest = package.Manifest;
         var problems = new List<AnalysisProblem>();
         CheckNames(contracts, implementation, problems);
-        var bundled = package.Assemblies.Where(assembly => assembly.Role == AssemblyRole.Bundled).Select(assembly => assembly.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Runesmith resolves a plugin's references only from the top of its lib folder.
+        var bundled = package.Assemblies.Where(assembly => assembly.Role == AssemblyRole.Bundled && !assembly.File.Contains('/', StringComparison.Ordinal)).Select(assembly => assembly.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var reference in contracts.Definition.MainModule.AssemblyReferences)
         {

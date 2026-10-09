@@ -173,6 +173,39 @@ public sealed class PluginAnalyzerTests : IDisposable
         Assert.Contains(report.Problems, problem => problem.Message == "lib/native/linux-x64/libsample.so is not runtimes/linux-x64/native/libsample.so of any package the lock files pin.");
     }
 
+    private static TestPackage WithBuildHost => new()
+    {
+        Capabilities = [("process", "Runs its build host.")],
+        Locked = [("Sample.Host", "1.0.0", "MIT")],
+        Content =
+        [
+            ("BuildHost/Host.exe", Compiler.Compile("Host", "namespace Host { public static class Program { public static void Main() => System.Diagnostics.Process.Start(\"dotnet\"); } }"), "Sample.Host"),
+            ("BuildHost/Host.runtimeconfig.json", "{}"u8.ToArray(), "Sample.Host"),
+        ],
+    };
+
+    [Fact]
+    public async Task VerifiesContentFilesInSubfoldersAndScansTheirAssemblies()
+    {
+        var report = (await AnalyseAsync(WithBuildHost)).Report;
+
+        Assert.DoesNotContain(report.Problems, problem => problem.Severity == ProblemSeverity.Error);
+        Assert.Contains(new ReportedPackage("Sample.Host", "1.0.0", true, "MIT"), report.Dependencies!.Packages);
+        var process = Assert.Single(report.Capabilities!.Detected, capability => capability.Id == "process");
+        Assert.Contains(process.CallSites, site => site.Assembly == "BuildHost/Host.exe");
+    }
+
+    [Fact]
+    public async Task FailsAContentFileThatIsNotTheFileOfItsPackage()
+    {
+        var package = WithBuildHost with { PublishedContent = new Dictionary<string, byte[]> { ["BuildHost/Host.runtimeconfig.json"] = "{ }"u8.ToArray() } };
+
+        var report = (await AnalyseAsync(package)).Report;
+
+        Assert.Equal(AnalysisOutcome.Failed, report.Verdict);
+        Assert.Contains(report.Problems, problem => problem.Message == "lib/BuildHost/Host.runtimeconfig.json is not a file of Sample.Host 1.0.0.");
+    }
+
     [Fact]
     public async Task FailsAnSbomThatDoesNotDescribeTheVerifiedContentsAndChecksTheVerifiedPackagesInstead()
     {

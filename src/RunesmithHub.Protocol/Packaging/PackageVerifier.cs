@@ -9,27 +9,28 @@ public static class PackageVerifier
     private const string LibFolder = "lib";
 
     /// <summary>
-    /// Checks that every assembly in <c>lib/</c>, outside the native folder, is listed in the manifest with a matching SHA-256, and that every
-    /// listed assembly is there.
+    /// Checks that every file the manifest lists is in <c>lib/</c> with a matching SHA-256, and that every assembly and program file in
+    /// <c>lib/</c>, at any depth outside the native folder, is listed.
     /// </summary>
-    /// <returns>Every problem found; empty when the assemblies match.</returns>
+    /// <returns>Every problem found; empty when the files match.</returns>
     public static IReadOnlyList<string> CheckAssemblies(string stagingDirectory, PackagedManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         var problems = new List<string>();
         var lib = Path.Combine(stagingDirectory, LibFolder);
-        var listed = manifest.Assemblies.All.ToDictionary(assembly => assembly.File, assembly => assembly.Sha256, StringComparer.Ordinal);
-        var native = Path.Combine(lib, "native") + Path.DirectorySeparatorChar;
-        var present = Directory.Exists(lib)
-            ? Directory.EnumerateFiles(lib, "*.dll", SearchOption.AllDirectories).Where(file => !file.StartsWith(native, StringComparison.Ordinal)).ToList()
-            : [];
-
-        foreach (var file in present)
+        var listed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (name, sha256) in manifest.Assemblies.All)
         {
-            var name = Path.GetRelativePath(lib, file).Replace(Path.DirectorySeparatorChar, '/');
-            if (!listed.TryGetValue(name, out var sha256))
+            if (!RelativePaths.IsSafe(name) || !listed.Add(name))
             {
-                problems.Add($"lib/{name} is not listed in the packaged manifest.");
+                problems.Add($"\"{name}\" is listed in the packaged manifest more than once or is not a safe path.");
+                continue;
+            }
+
+            var file = Path.Combine(lib, name);
+            if (!File.Exists(file))
+            {
+                problems.Add($"lib/{name} is listed in the packaged manifest but missing.");
                 continue;
             }
 
@@ -38,10 +39,21 @@ public static class PackageVerifier
                 problems.Add($"lib/{name} does not match its SHA-256 in the packaged manifest.");
         }
 
-        var presentNames = present.Select(file => Path.GetRelativePath(lib, file).Replace(Path.DirectorySeparatorChar, '/')).ToHashSet(StringComparer.Ordinal);
-        problems.AddRange(listed.Keys.Where(name => !presentNames.Contains(name)).Select(name => $"lib/{name} is listed in the packaged manifest but missing."));
+        var native = Path.Combine(lib, "native") + Path.DirectorySeparatorChar;
+        var present = Directory.Exists(lib)
+            ? Directory.EnumerateFiles(lib, "*", SearchOption.AllDirectories).Where(file => !file.StartsWith(native, StringComparison.Ordinal))
+            : [];
+        foreach (var name in present.Select(file => Path.GetRelativePath(lib, file).Replace(Path.DirectorySeparatorChar, '/')).Order(StringComparer.Ordinal))
+        {
+            if (MustBeListed(name) && !listed.Contains(name))
+                problems.Add($"lib/{name} is not listed in the packaged manifest.");
+        }
+
         return problems;
     }
+
+    private static bool MustBeListed(string name) =>
+        RelativePaths.HasExtension(name, ".dll", ".exe") || PackageEntryRules.IsProcessFile($"{LibFolder}/{name}");
 
     /// <summary>Checks that the packaged manifest's ID, version, API range, dependencies and capabilities match the version record.</summary>
     /// <returns>Every difference found; empty when they match.</returns>

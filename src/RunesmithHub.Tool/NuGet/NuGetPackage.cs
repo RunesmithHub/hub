@@ -13,6 +13,7 @@ internal sealed record PackageLicense(string? Expression, string? FileText, stri
 internal sealed class NuGetPackage : IDisposable
 {
     private const long MaxEntryBytes = 128L * 1024 * 1024;
+    private const string ContentFolder = "contentFiles";
 
     private readonly ZipArchive _archive;
 
@@ -55,16 +56,27 @@ internal sealed class NuGetPackage : IDisposable
         return buffer.ToArray();
     }
 
-    /// <summary>Gets whether some file in the package with the given file name, in any folder, has exactly the given bytes.</summary>
-    public bool HasFile(string fileName, ReadOnlySpan<byte> content)
+    /// <summary>
+    /// Gets whether the package has a file with exactly the given bytes: for a file name, in any folder; for a path with folders, a content
+    /// file the build copies to that path, <c>contentFiles/&lt;language&gt;/&lt;framework&gt;/&lt;path&gt;</c>.
+    /// </summary>
+    public bool HasFile(string path, ReadOnlySpan<byte> content)
     {
-        foreach (var path in _archive.Entries.Select(entry => entry.FullName).Where(path => string.Equals(Path.GetFileName(path), fileName, StringComparison.OrdinalIgnoreCase)))
+        ArgumentNullException.ThrowIfNull(path);
+        var inFolder = path.Contains('/', StringComparison.Ordinal);
+        foreach (var entry in _archive.Entries.Select(entry => entry.FullName).Where(entry => inFolder ? IsContentFile(entry, path) : string.Equals(Path.GetFileName(entry), path, StringComparison.OrdinalIgnoreCase)))
         {
-            if (ReadFile(path) is { } bytes && bytes.AsSpan().SequenceEqual(content))
+            if (ReadFile(entry) is { } bytes && bytes.AsSpan().SequenceEqual(content))
                 return true;
         }
 
         return false;
+    }
+
+    private static bool IsContentFile(string entry, string outputPath)
+    {
+        var parts = entry.Split('/', 4);
+        return parts.Length == 4 && string.Equals(parts[0], ContentFolder, StringComparison.OrdinalIgnoreCase) && string.Equals(parts[3], outputPath, StringComparison.OrdinalIgnoreCase);
     }
 
     public string? Copyright => Metadata("copyright");

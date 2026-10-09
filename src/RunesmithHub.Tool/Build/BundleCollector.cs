@@ -5,8 +5,9 @@ using RunesmithHub.Tool.NuGet;
 namespace RunesmithHub.Tool.Build;
 
 /// <summary>
-/// Decides which assemblies of the implementation's build output the package bundles. Host-shared assemblies and other plugins' contracts
-/// are left out because Runesmith supplies them, and so are package assets the build left out because the shared framework supplies them.
+/// Decides which files of the implementation's build output the package bundles: assemblies, native libraries, and the content files packages
+/// copy to the output, which keep their folder under <c>lib/</c>. Host-shared assemblies and other plugins' contracts are left out because
+/// Runesmith supplies them, and so are package assets the build left out because the shared framework supplies them.
 /// Every bundled file must come from a restored package or a project in the repository.
 /// </summary>
 internal static class BundleCollector
@@ -14,7 +15,9 @@ internal static class BundleCollector
     private const string LibFolder = "lib/";
 
     /// <summary>Lists the files to bundle, sorted by package path, adding a problem for each file of unknown or missing origin.</summary>
-    public static IReadOnlyList<BundleItem> Collect(ProjectOutput implementation, string contractsAssemblyName, SharedFrameworks frameworks, List<string> problems)
+    /// <param name="declaresProcess">Whether the manifest declares the process capability, which program files need.</param>
+    public static IReadOnlyList<BundleItem> Collect(
+        ProjectOutput implementation, string contractsAssemblyName, SharedFrameworks frameworks, bool declaresProcess, List<string> problems)
     {
         ArgumentNullException.ThrowIfNull(implementation);
         ArgumentNullException.ThrowIfNull(frameworks);
@@ -50,6 +53,9 @@ internal static class BundleCollector
                 var relative = Path.Combine("runtimes", native.RuntimeIdentifier, "native", fileName);
                 Add(items, implementation, library, $"{PackageEntryRules.NativePrefix}{native.RuntimeIdentifier}/{fileName}", relative, native.Path, problems);
             }
+
+            if (!library.IsProject && !isOtherPluginsContracts)
+                AddContentFiles(items, implementation, library, declaresProcess, problems);
         }
 
         foreach (var file in Directory.EnumerateFiles(implementation.Directory, "*.dll").Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal))
@@ -59,6 +65,29 @@ internal static class BundleCollector
         }
 
         return [.. items.Values.OrderBy(item => item.PackagePath, StringComparer.Ordinal)];
+    }
+
+    private static void AddContentFiles(Dictionary<string, BundleItem> items, ProjectOutput implementation, AssetLibrary library, bool declaresProcess, List<string> problems)
+    {
+        foreach (var content in library.ContentFiles)
+        {
+            if (!RelativePaths.IsSafe(content.OutputPath))
+            {
+                problems.Add($"{library.Name} {library.Version} copies {content.Path} to \"{content.OutputPath}\", which is not a safe path in the build output.");
+                continue;
+            }
+
+            if (!File.Exists(Path.Combine(implementation.Directory, content.OutputPath)))
+                continue;
+            var packagePath = LibFolder + content.OutputPath;
+            var problem = packagePath.StartsWith(PackageEntryRules.NativePrefix, StringComparison.OrdinalIgnoreCase)
+                ? $"\"{packagePath}\" is in the folder for native runtime assets."
+                : PackageEntryRules.Check(packagePath, declaresProcess);
+            if (problem is not null)
+                problems.Add($"{content.OutputPath} from {library.Name} {library.Version} can't be bundled: {problem}");
+            else
+                Add(items, implementation, library, packagePath, content.OutputPath, content.Path, problems);
+        }
     }
 
     private static void Add(

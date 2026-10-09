@@ -151,6 +151,57 @@ public sealed class PackageTests : IDisposable
     }
 
     [Fact]
+    public void ChecksListedFilesInSubfoldersAndRequiresEveryProgramFileToBeListed()
+    {
+        byte[] host = "build host"u8.ToArray();
+        byte[] settings = "{}"u8.ToArray();
+        var manifest = Manifest(declaresProcess: true) with
+        {
+            Assemblies = Manifest().Assemblies with
+            {
+                Bundled =
+                [
+                    new BundledAssembly { File = "BuildHost/Host.exe", Sha256 = Hashes.Sha256(host), Package = "Sample.Host", PackageVersion = "1.0.0" },
+                    new BundledAssembly { File = "BuildHost/Host.runtimeconfig.json", Sha256 = Hashes.Sha256(settings), Package = "Sample.Host", PackageVersion = "1.0.0" },
+                ],
+            },
+        };
+        List<PackageFile> files =
+        [
+            .. ValidFiles().Where(file => file.Path != "plugin.json"),
+            new("plugin.json", IndexJson.Serialize(manifest)),
+            new("lib/BuildHost/Host.exe", host),
+            new("lib/BuildHost/Host.runtimeconfig.json", "{ }"u8.ToArray()),
+            new("lib/BuildHost/Host.deps.json", settings),
+            new("lib/BuildHost/Host.pdb", settings),
+        ];
+        using var archive = PackageArchive.Open(new MemoryStream(PackageWriter.Write(files)));
+        var staging = Path.Combine(_folder.Path, "staging");
+        archive.ExtractTo(staging);
+
+        var problems = PackageVerifier.CheckAssemblies(staging, archive.ReadManifest());
+
+        Assert.Equal(["lib/BuildHost/Host.runtimeconfig.json does not match its SHA-256 in the packaged manifest.", "lib/BuildHost/Host.deps.json is not listed in the packaged manifest."], problems);
+    }
+
+    [Fact]
+    public void RejectsListedFilesOutsideTheLibFolder()
+    {
+        var manifest = Manifest() with
+        {
+            Assemblies = Manifest().Assemblies with { Bundled = [new BundledAssembly { File = "../plugin.json", Sha256 = Hashes.Sha256(Contracts) }] },
+        };
+        var staging = Path.Combine(_folder.Path, "staging");
+        Directory.CreateDirectory(Path.Combine(staging, "lib"));
+        File.WriteAllBytes(Path.Combine(staging, "lib", "Lumen.Todo.Contracts.dll"), Contracts);
+        File.WriteAllBytes(Path.Combine(staging, "lib", "Lumen.Todo.dll"), Implementation);
+
+        var problem = Assert.Single(PackageVerifier.CheckAssemblies(staging, manifest));
+
+        Assert.Contains("not a safe path", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ComparesTheManifestWithTheVersionRecord()
     {
         var manifest = Manifest();

@@ -56,6 +56,12 @@ internal sealed record TestPackage
     /// <summary>Gets native libraries by package path, such as <c>lib/native/linux-x64/libx.so</c>, and the locked package that holds each.</summary>
     public IReadOnlyList<(string Path, byte[] Content, string Package)> Native { get; init; } = [];
 
+    /// <summary>Gets content files by path under <c>lib/</c>, such as <c>BuildHost/Host.exe</c>, and the locked package whose content files hold each.</summary>
+    public IReadOnlyList<(string Path, byte[] Content, string Package)> Content { get; init; } = [];
+
+    /// <summary>Gets what a NuGet package holds instead of a content file, by path under <c>lib/</c>.</summary>
+    public IReadOnlyDictionary<string, byte[]> PublishedContent { get; init; } = new Dictionary<string, byte[]>();
+
     /// <summary>Gets what a NuGet package holds instead of a bundled assembly, by assembly name, as when a build changed the file.</summary>
     public IReadOnlyDictionary<string, byte[]> PublishedImages { get; init; } = new Dictionary<string, byte[]>();
 
@@ -79,6 +85,8 @@ internal sealed record TestPackage
                 .Select(bundled => ($"lib/net10.0/{bundled.Name}.dll", PublishedImages.GetValueOrDefault(bundled.Name) ?? bundled.Image)),
             .. Native.Where(native => native.Package == package.Id)
                 .Select(native => ("runtimes/" + native.Path["lib/native/".Length..].Replace("/", "/native/", StringComparison.Ordinal), native.Content)),
+            .. Content.Where(content => content.Package == package.Id)
+                .Select(content => ($"contentFiles/any/any/{content.Path}", PublishedContent.GetValueOrDefault(content.Path) ?? content.Content)),
         ]));
 
     /// <summary>Gets a package source with <see cref="NuGetPackages"/>.</summary>
@@ -101,7 +109,8 @@ internal sealed record TestPackage
         {
             Contracts = new AssemblyFile { File = ContractsAssembly + ".dll", Sha256 = Hashes.Sha256(contracts) },
             Implementation = new AssemblyFile { File = Root + ".dll", Sha256 = Hashes.Sha256(implementation) },
-            Bundled = [.. Bundled.Select(bundled => new BundledAssembly { File = bundled.Name + ".dll", Sha256 = Hashes.Sha256(bundled.Image), Package = bundled.Package, PackageVersion = bundled.Version })],
+            Bundled = [.. Bundled.Select(bundled => new BundledAssembly { File = bundled.Name + ".dll", Sha256 = Hashes.Sha256(bundled.Image), Package = bundled.Package, PackageVersion = bundled.Version }),
+                .. Content.Select(content => new BundledAssembly { File = content.Path, Sha256 = Hashes.Sha256(content.Content), Package = content.Package, PackageVersion = Locked.First(locked => locked.Id == content.Package).Version })],
         };
         var manifest = PackagedManifest.Create(DeveloperManifest(), assemblies, new PackageBuild { Commit = Commit, Run = "local", Sdk = "10.0.400" });
         var locked = LockedPackages();
@@ -113,6 +122,7 @@ internal sealed record TestPackage
             new($"lib/{assemblies.Implementation.File}", implementation),
             .. Bundled.Select(bundled => new PackageFile($"lib/{bundled.Name}.dll", bundled.Image)),
             .. Native.Select(native => new PackageFile(native.Path, native.Content)),
+            .. Content.Select(content => new PackageFile($"lib/{content.Path}", content.Content)),
             new("LICENSE", "MIT License\n"u8.ToArray()),
             new("README.md", "# Lumen Todo\n"u8.ToArray()),
             new(CycloneDxSbom.FileName, Sbom ?? CycloneDxSbom.Create(Id, Version, Commit, Repository, locked, bundledPackages)),
@@ -133,7 +143,7 @@ internal sealed record TestPackage
     {
         var packages = NuGetPackages();
         return [.. locked
-            .Where(pinned => Bundled.Any(bundled => bundled.Package == pinned.Id && bundled.Version == pinned.Version) || Native.Any(native => native.Package == pinned.Id))
+            .Where(pinned => Bundled.Any(bundled => bundled.Package == pinned.Id && bundled.Version == pinned.Version) || Native.Any(native => native.Package == pinned.Id) || Content.Any(content => content.Package == pinned.Id))
             .OrderBy(pinned => pinned.Id, StringComparer.OrdinalIgnoreCase)
             .Select(pinned =>
             {

@@ -30,7 +30,8 @@ internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver a
         var implementation = ProjectOutput.Locate(source.ImplementationProject);
 
         var problems = new List<string>();
-        var items = BundleCollector.Collect(implementation, contracts.AssemblyName, SharedFrameworks.Locate(implementation.Assets, dotnetRoots), problems);
+        var declaresProcess = source.Manifest.Capabilities?.Any(capability => capability.Id == Capabilities.Process) == true;
+        var items = BundleCollector.Collect(implementation, contracts.AssemblyName, SharedFrameworks.Locate(implementation.Assets, dotnetRoots), declaresProcess, problems);
         var locked = source.LockedPackages();
         var bundled = await verifier.VerifyAsync(items, locked, problems, cancellationToken).ConfigureAwait(false);
         if (problems.Count > 0)
@@ -102,7 +103,7 @@ internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver a
     }
 
     private static BundledAssembly Bundled(BundleItem item, string sha256) =>
-        new() { File = item.FileName, Sha256 = sha256, Package = item.PackageId, PackageVersion = item.PackageVersion };
+        new() { File = item.LibPath, Sha256 = sha256, Package = item.PackageId, PackageVersion = item.PackageVersion };
 
     private static async Task WriteImagesAsync(string output, IReadOnlyList<EncodedImage> images, CancellationToken cancellationToken)
     {

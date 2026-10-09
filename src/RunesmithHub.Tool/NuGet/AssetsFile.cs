@@ -5,12 +5,18 @@ namespace RunesmithHub.Tool.NuGet;
 /// <summary>A native library a package supplies for one runtime identifier.</summary>
 internal sealed record NativeAsset(string Path, string RuntimeIdentifier);
 
+/// <summary>A file a package copies to the build output, at <see cref="OutputPath"/> relative to the output folder.</summary>
+internal sealed record ContentAsset(string Path, string OutputPath);
+
 /// <summary>What restore resolved for one package or project reference, and the files it adds to the build output.</summary>
 /// <param name="RuntimeAssemblies">Paths of the managed assemblies inside the package, or under the referenced project's output.</param>
 internal sealed record AssetLibrary(string Name, string Version, bool IsProject, IReadOnlyList<string> RuntimeAssemblies, IReadOnlyList<NativeAsset> NativeAssets)
 {
     /// <summary>Gets the package's folder under a packages folder, such as <c>markdig/0.40.0</c>, or null for projects.</summary>
     public string? PackageFolder { get; init; }
+
+    /// <summary>Gets the content files the build copies to its output.</summary>
+    public IReadOnlyList<ContentAsset> ContentFiles { get; init; } = [];
 }
 
 /// <summary>Reads the <c>obj/project.assets.json</c> restore writes, which says which package each output assembly came from.</summary>
@@ -87,10 +93,17 @@ internal sealed record AssetsFile(string TargetFramework, IReadOnlyList<AssetLib
                 .Select(asset => new NativeAsset(asset.Name, asset.Value.GetProperty("rid").GetString()!))
                 .ToList()
             : [];
+        var content = value.TryGetProperty("contentFiles", out var files)
+            ? files.EnumerateObject()
+                .Where(file => !file.Name.EndsWith(PlaceholderFile, StringComparison.Ordinal) && file.Value.TryGetProperty("copyToOutput", out var copy) && copy.ValueKind == JsonValueKind.True)
+                .Select(file => new ContentAsset(file.Name, file.Value.GetProperty("outputPath").GetString()!))
+                .ToList()
+            : [];
         var isProject = value.GetProperty("type").GetString() == "project";
         return new AssetLibrary(property.Name[..separator], property.Name[(separator + 1)..], isProject, runtime, native)
         {
             PackageFolder = isProject ? null : folders.GetValueOrDefault(property.Name),
+            ContentFiles = content,
         };
     }
 }

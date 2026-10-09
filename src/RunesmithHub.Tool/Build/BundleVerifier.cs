@@ -37,7 +37,7 @@ internal sealed class BundleVerifier(INuGetPackageSource packages)
                 var expected = package.ReadFile(item.PathInPackage!);
                 var actual = await File.ReadAllBytesAsync(item.SourceFile, cancellationToken).ConfigureAwait(false);
                 if (expected is null || !expected.AsSpan().SequenceEqual(actual))
-                    problems.Add($"{item.FileName} in the build output differs from {item.PathInPackage} in {id} {version}.");
+                    problems.Add($"{(item.IsNative ? item.FileName : item.LibPath)} in the build output differs from {item.PathInPackage} in {id} {version}.");
             }
 
             verified.Add(BundledPackage.From(pinned, package));

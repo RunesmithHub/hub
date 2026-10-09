@@ -4,11 +4,12 @@ using System.Text.Json.Serialization;
 namespace RunesmithHub.Protocol.Manifests;
 
 /// <summary>
-/// An assembly in a package besides the contracts and implementation: from a NuGet package, or, when <see cref="Package"/> is absent, built
-/// from the plugin's own repository at the build commit.
+/// A file in a package's <c>lib/</c> folder besides the contracts and implementation, such as an assembly or a file a package copies to the
+/// build output: from a NuGet package, or, when <see cref="Package"/> is absent, built from the plugin's own repository at the build commit.
 /// </summary>
 public sealed record BundledAssembly
 {
+    /// <summary>Gets its path under <c>lib/</c>, such as <c>Markdig.dll</c> or <c>BuildHost-netcore/Helper.dll</c>.</summary>
     public required string File { get; init; }
 
     public required string Sha256 { get; init; }

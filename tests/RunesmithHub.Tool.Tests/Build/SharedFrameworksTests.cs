@@ -43,7 +43,7 @@ public sealed class SharedFrameworksTests : IDisposable
     {
         var assets = Assets();
         var problems = new List<string>();
-        var items = BundleCollector.Collect(new ProjectOutput("Lumen.Todo", _folder.Combine("bin"), assets), "Lumen.Todo.Contracts", SharedFrameworks.Locate(assets, [dotnetRoot]), problems);
+        var items = BundleCollector.Collect(new ProjectOutput("Lumen.Todo", _folder.Combine("bin"), assets), "Lumen.Todo.Contracts", SharedFrameworks.Locate(assets, [dotnetRoot]), declaresProcess: false, problems);
         return (items, problems);
     }
 
