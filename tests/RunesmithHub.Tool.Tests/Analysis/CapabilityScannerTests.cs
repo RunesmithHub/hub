@@ -1,3 +1,4 @@
+using RunesmithHub.Tool.Analysis;
 using RunesmithHub.Tool.Analysis.Detection;
 using RunesmithHub.Tool.Tests.Support;
 
@@ -88,5 +89,65 @@ public sealed class CapabilityScannerTests
 
         Assert.All(detected.SitesOf("network"), site => Assert.Equal("Sample.Client.FetchAsync", site.Member));
         Assert.Equal("Sample.Client.Reader", Assert.Single(detected.SitesOf("filesystem")).Member);
+    }
+
+    [Fact]
+    public void IgnoresNonPublicReflectionOnItsOwnTypesInGeneratedJsonMetadata()
+    {
+        var detected = ScanSource("""
+            namespace Sample
+            {
+                public sealed class Memory { private string Name { get; set; } = ""; }
+
+                internal sealed class MemoryJson
+                {
+                    private const BindingFlags InstanceMemberBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+                    public Func<ICustomAttributeProvider?> NameProvider() =>
+                        static () => typeof(Memory).GetProperty("Name", InstanceMemberBindingFlags, null, typeof(string), Array.Empty<Type>(), null);
+                }
+            }
+            """);
+
+        Assert.Empty(detected.Ids);
+    }
+
+    [Theory]
+    [InlineData("return typeof(Sample.Secret).GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    [InlineData("return typeof(Sample.Contracts.Shared).GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    public void IgnoresNonPublicReflectionOnTypesItDefines(string body) => Assert.Empty(ScanSource(Own(body)).Ids);
+
+    [Theory]
+    [InlineData("return typeof(Other.Hidden).GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    [InlineData("return new Sample.Secret().GetType().GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    [InlineData("return type.GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    [InlineData("static object? Find<T>() => typeof(T).GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance); return Find<Sample.Secret>();")]
+    [InlineData("return (flag ? typeof(Sample.Secret) : type).GetField(\"value\", BindingFlags.NonPublic | BindingFlags.Instance);")]
+    public void DetectsNonPublicReflectionItCannotProveIsOnItsOwnTypes(string body) =>
+        Assert.Equal(["dynamic-code"], ScanSource(Own(body)).Ids);
+
+    private static string Own(string body) => $$"""
+        namespace Sample
+        {
+            public sealed class Secret { private int value; public int Value => value; }
+
+            public static class Code
+            {
+                public static object? Run(Type type, bool flag)
+                {
+                    {{body}}
+                }
+
+            }
+        }
+        """;
+
+    private static DetectedCapabilities ScanSource(string source)
+    {
+        var contracts = Compiler.Compile("Sample.Contracts", "namespace Sample.Contracts { public sealed class Shared { private int value; public int Value => value; } }");
+        var other = Compiler.Compile("Other", "namespace Other { public sealed class Hidden { private int value; public int Value => value; } }");
+        var implementation = Compiler.Compile("Sample", "using System;\nusing System.Reflection;\n" + source, contracts, other);
+        return CapabilityScanner.Scan(
+            [Assemblies.Load(implementation), Assemblies.Load(contracts, AssemblyRole.Contracts), Assemblies.Load(other, AssemblyRole.Bundled)], []);
     }
 }

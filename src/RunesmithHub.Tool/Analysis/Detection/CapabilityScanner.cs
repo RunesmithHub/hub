@@ -6,7 +6,7 @@ namespace RunesmithHub.Tool.Analysis.Detection;
 
 /// <summary>
 /// Finds capability use in compiled code: calls to the APIs in <see cref="CapabilityApiTable"/>, platform invoke, function pointer calls,
-/// unsafe code, private member access and reflection over non-public members, and native libraries in the package.
+/// unsafe code, private member access, reflection over non-public members of types that are not the plugin's own, and native libraries in the package.
 /// </summary>
 internal static class CapabilityScanner
 {
@@ -19,15 +19,17 @@ internal static class CapabilityScanner
     {
         ArgumentNullException.ThrowIfNull(assemblies);
         ArgumentNullException.ThrowIfNull(nativeLibraries);
+        var all = assemblies.ToList();
+        var own = all.Where(assembly => assembly.Role != AssemblyRole.Bundled).ToList();
         var detected = new DetectedCapabilities();
-        foreach (var assembly in assemblies)
-            Scan(assembly, detected);
+        foreach (var assembly in all)
+            Scan(assembly, own, detected);
         foreach (var library in nativeLibraries)
             detected.Add(Native, new CallSite(library, library, "a native library in the package"));
         return detected;
     }
 
-    private static void Scan(LoadedAssembly assembly, DetectedCapabilities detected)
+    private static void Scan(LoadedAssembly assembly, List<LoadedAssembly> own, DetectedCapabilities detected)
     {
         foreach (var module in assembly.Definition.Modules)
         {
@@ -41,12 +43,12 @@ internal static class CapabilityScanner
                 if (method.CustomAttributes.Any(attribute => attribute.AttributeType.FullName == UnsafeAccessor))
                     detected.Add(DynamicCode, new CallSite(assembly.File, MemberNames.Of(method), "an unsafe accessor to private members"));
                 if (method.HasBody)
-                    ScanBody(assembly, method, detected);
+                    ScanBody(assembly, method, own, detected);
             }
         }
     }
 
-    private static void ScanBody(LoadedAssembly assembly, MethodDefinition method, DetectedCapabilities detected)
+    private static void ScanBody(LoadedAssembly assembly, MethodDefinition method, List<LoadedAssembly> own, DetectedCapabilities detected)
     {
         var instructions = method.Body.Instructions;
         for (var i = 0; i < instructions.Count; i++)
@@ -62,7 +64,7 @@ internal static class CapabilityScanner
                 continue;
             if (CapabilityApiTable.Match(called) is { } api)
                 detected.Add(api.Capability, new CallSite(assembly.File, MemberNames.Of(method), MemberNames.Of(called)));
-            else if (IsNonPublicReflection(called, instructions, i))
+            else if (IsNonPublicReflection(called, instructions, i) && !OwnTypeReceiver.IsProven(method.Body, i, own))
                 detected.Add(DynamicCode, new CallSite(assembly.File, MemberNames.Of(method), $"{MemberNames.Of(called)} with BindingFlags.NonPublic"));
         }
     }
