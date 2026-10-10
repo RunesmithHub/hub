@@ -11,7 +11,12 @@ internal sealed class TemporaryFolder : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(Path))
-            Directory.Delete(Path, recursive: true);
+        if (!Directory.Exists(Path))
+            return;
+
+        // Git writes its object files read-only, and Windows will not delete read-only files.
+        foreach (var file in Directory.EnumerateFiles(Path, "*", SearchOption.AllDirectories))
+            File.SetAttributes(file, FileAttributes.Normal);
+        Directory.Delete(Path, recursive: true);
     }
 }

@@ -58,20 +58,14 @@ internal static class KeyFiles
     public static ECDiffieHellman ReadKeyAgreementKey(string path, Func<string> passphrase)
     {
         var pem = File.ReadAllText(path);
-        var key = ECDiffieHellman.Create();
-        try
-        {
-            if (pem.Contains(EncryptedLabel, StringComparison.Ordinal))
-                key.ImportFromEncryptedPem(pem, passphrase());
-            else
-                key.ImportFromPem(pem);
-            return key.ExportParameters(includePrivateParameters: false).Curve.Oid.Value == P256Oid ? key : throw new CryptographicException($"{path} is not a P-256 private key.");
-        }
-        catch
-        {
-            key.Dispose();
-            throw;
-        }
+        // Windows will not load a signing key as a key-agreement key directly; going through the key's parameters works everywhere.
+        using var signingKey = ECDsa.Create();
+        if (pem.Contains(EncryptedLabel, StringComparison.Ordinal))
+            signingKey.ImportFromEncryptedPem(pem, passphrase());
+        else
+            signingKey.ImportFromPem(pem);
+        var parameters = signingKey.ExportParameters(includePrivateParameters: true);
+        return parameters.Curve.Oid.Value == P256Oid ? ECDiffieHellman.Create(parameters) : throw new CryptographicException($"{path} is not a P-256 private key.");
     }
 
     private static bool IsP256(PublicKey key)

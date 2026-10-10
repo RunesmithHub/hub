@@ -17,8 +17,7 @@ internal static class FindingsCipher
     public static SealedFindings Seal(ReadOnlySpan<byte> plaintext, PublicKey recipient)
     {
         ArgumentNullException.ThrowIfNull(recipient);
-        using var recipientKey = ECDiffieHellman.Create();
-        recipientKey.ImportSubjectPublicKeyInfo(recipient.SubjectPublicKeyInfo.Span, out _);
+        using var recipientKey = PublicAgreementKey(recipient.SubjectPublicKeyInfo.Span);
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
         var ephemeralKey = ephemeral.ExportSubjectPublicKeyInfo();
         var key = DeriveKey(ephemeral.DeriveRawSecretAgreement(recipientKey.PublicKey), ephemeralKey, recipient.SubjectPublicKeyInfo.Span);
@@ -42,8 +41,7 @@ internal static class FindingsCipher
 
         try
         {
-            using var ephemeral = ECDiffieHellman.Create();
-            ephemeral.ImportSubjectPublicKeyInfo(sealedFindings.EphemeralKey, out _);
+            using var ephemeral = PublicAgreementKey(sealedFindings.EphemeralKey);
             var key = DeriveKey(privateKey.DeriveRawSecretAgreement(ephemeral.PublicKey), sealedFindings.EphemeralKey, recipient);
             var plaintext = new byte[sealedFindings.Ciphertext.Length];
             using var aes = new AesGcm(key, TagBytes);
@@ -69,4 +67,12 @@ internal static class FindingsCipher
     }
 
     private static byte[] AssociatedData(string recipientKeyId) => Encoding.ASCII.GetBytes($"{SealedFindings.FormatName}\n{recipientKeyId}");
+
+    // Imported through the key's parameters, which every platform accepts for key agreement.
+    private static ECDiffieHellman PublicAgreementKey(ReadOnlySpan<byte> subjectPublicKeyInfo)
+    {
+        using var key = ECDsa.Create();
+        key.ImportSubjectPublicKeyInfo(subjectPublicKeyInfo, out _);
+        return ECDiffieHellman.Create(key.ExportParameters(includePrivateParameters: false));
+    }
 }
