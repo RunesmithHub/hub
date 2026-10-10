@@ -22,7 +22,7 @@ internal sealed class ArtifactPublisher(IGitHubReader github, IGitHubWriter bot,
         foreach (var (registration, record) in Pending(registry, deployed))
         {
             var folder = Path.Combine(workDirectory, registration.Id, record.Version.ToString());
-            await artifacts.DownloadAsync(record.BuildRun, WorkflowArtifacts.Package, folder, cancellationToken).ConfigureAwait(false);
+            await artifacts.DownloadAsync(record.BuildRun, WorkflowArtifacts.Package(registration.Id, record.Version), folder, cancellationToken).ConfigureAwait(false);
             var output = BuildOutput.Open(folder, registration.Id, record.Version, registry.LimitsOf(registration));
             var mismatches = Mismatches(record, output).ToList();
             if (mismatches.Count > 0)

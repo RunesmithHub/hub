@@ -169,8 +169,8 @@ public sealed class PipelineTests : IDisposable
         _registry.Run("checkout", "-q", "main");
         var pull = new PullRequest(number, changes.Title, changes.Body, changes.Branch, head, FakeGitHub.Bot, changes.Labels, true, false, Samples.Time, "");
         _tool.GitHub.PullRequests.Add(pull);
-        _tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Package)] = package;
-        _tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Analysis)] = analysis;
+        _tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Package("lumen.sample", SemanticVersion.Parse("1.0.0")))] = package;
+        _tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Analysis("lumen.sample", SemanticVersion.Parse("1.0.0")))] = analysis;
 
         string[] Gate(string name) => ["gate", name, "--pr", number.ToString(System.Globalization.CultureInfo.InvariantCulture), "--registry", _registry.Path, "--default-branch", "main"];
         await RunAsync(Gate("verify"));

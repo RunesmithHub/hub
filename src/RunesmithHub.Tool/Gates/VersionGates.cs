@@ -123,10 +123,10 @@ internal sealed class VersionGates(IGitHubReader github, IArtifactSource artifac
         var folder = Directory.CreateTempSubdirectory("rshub-verify-");
         try
         {
-            var analysisFolder = Path.Combine(folder.FullName, WorkflowArtifacts.Analysis);
-            var packageFolder = Path.Combine(folder.FullName, WorkflowArtifacts.Package);
-            await artifacts.DownloadAsync(added.BuildRun, WorkflowArtifacts.Analysis, analysisFolder, cancellationToken).ConfigureAwait(false);
-            await artifacts.DownloadAsync(added.BuildRun, WorkflowArtifacts.Package, packageFolder, cancellationToken).ConfigureAwait(false);
+            var analysisFolder = Path.Combine(folder.FullName, "analysis");
+            var packageFolder = Path.Combine(folder.FullName, "package");
+            await artifacts.DownloadAsync(added.BuildRun, WorkflowArtifacts.Analysis(change.PluginId, change.Version), analysisFolder, cancellationToken).ConfigureAwait(false);
+            await artifacts.DownloadAsync(added.BuildRun, WorkflowArtifacts.Package(change.PluginId, change.Version), packageFolder, cancellationToken).ConfigureAwait(false);
 
             var analysisBytes = await File.ReadAllBytesAsync(Path.Combine(analysisFolder, AnalysisReport.FileName), cancellationToken).ConfigureAwait(false);
             if (!Hashes.Matches(analysisBytes, added.AnalysisDigest))

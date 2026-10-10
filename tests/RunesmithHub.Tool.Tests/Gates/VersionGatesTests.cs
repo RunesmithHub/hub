@@ -52,8 +52,8 @@ public sealed class VersionGatesTests : IDisposable
         var analysis = Samples.AnalysisFor(await _registry.LoadAsync(), package, version);
         await File.WriteAllBytesAsync(Path.Combine(analysisFolder, AnalysisReport.FileName), analysis, TestContext.Current.CancellationToken);
         await File.WriteAllBytesAsync(Path.Combine(analysisFolder, BuildJob.FileName), ToolJson.Serialize(Samples.Job(version)), TestContext.Current.CancellationToken);
-        _artifacts.Folders[(RunId, WorkflowArtifacts.Package)] = package;
-        _artifacts.Folders[(RunId, WorkflowArtifacts.Analysis)] = analysisFolder;
+        _artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse(version)))] = package;
+        _artifacts.Folders[(RunId, WorkflowArtifacts.Analysis(Samples.PluginId, SemanticVersion.Parse(version)))] = analysisFolder;
         return await Samples.RecordAsync(await _registry.LoadAsync(), package, version, RunId, analysis);
     }
 
@@ -114,8 +114,8 @@ public sealed class VersionGatesTests : IDisposable
     public async Task VerifyFailsWhenTheStoredAnalysisDoesNotMatchTheDigest()
     {
         var record = await BuildAsync("1.0.0");
-        await File.WriteAllBytesAsync(Path.Combine(_artifacts.Folders[(RunId, WorkflowArtifacts.Analysis)], AnalysisReport.FileName),
-            Samples.Analysis(_artifacts.Folders[(RunId, WorkflowArtifacts.Package)], "1.0.0", AnalysisOutcome.Review), TestContext.Current.CancellationToken);
+        await File.WriteAllBytesAsync(Path.Combine(_artifacts.Folders[(RunId, WorkflowArtifacts.Analysis(Samples.PluginId, SemanticVersion.Parse("1.0.0")))], AnalysisReport.FileName),
+            Samples.Analysis(_artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse("1.0.0")))], "1.0.0", AnalysisOutcome.Review), TestContext.Current.CancellationToken);
         var inputs = await PullRequestAsync(() => _registry.Version(Samples.PluginId, record));
 
         var result = await Gates.VerifyAsync(inputs, TestContext.Current.CancellationToken);
@@ -252,8 +252,8 @@ public sealed class VersionGatesTests : IDisposable
         var inputs = await PullRequestAsync(() => _registry.Version(Samples.PluginId, record));
         var tool = new ToolRunner();
         tool.GitHub.PullRequests.AddRange(_github.PullRequests);
-        tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Analysis)] = _artifacts.Folders[(RunId, WorkflowArtifacts.Analysis)];
-        tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Package)] = _artifacts.Folders[(RunId, WorkflowArtifacts.Package)];
+        tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Analysis(Samples.PluginId, SemanticVersion.Parse("1.0.0")))] = _artifacts.Folders[(RunId, WorkflowArtifacts.Analysis(Samples.PluginId, SemanticVersion.Parse("1.0.0")))];
+        tool.Artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse("1.0.0")))] = _artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse("1.0.0")))];
 
         var (exitCode, output, error) = await tool.RunAsync("gate", "verify", "--pr", inputs.Pull.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--registry", _registry.Path, "--default-branch", "main");

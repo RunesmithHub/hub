@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 using RunesmithHub.Protocol.Index;
 using RunesmithHub.Protocol.Registry;
+using RunesmithHub.Protocol.Versioning;
 using RunesmithHub.Tool.Gates;
 using RunesmithHub.Tool.GitHub;
 using RunesmithHub.Tool.IndexBuild;
@@ -33,7 +34,7 @@ public sealed class ArtifactPublisherTests : IDisposable
     private async Task<RegistryVersionRecord> MergeAsync(string version, bool banner = false)
     {
         var output = Samples.WriteBuildOutput(_folder.Combine("build", version), version, banner: banner);
-        _artifacts.Folders[(RunId, WorkflowArtifacts.Package)] = output;
+        _artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse(version)))] = output;
         var record = await Samples.RecordAsync(await _registry.LoadAsync(), output, version, RunId);
         _registry.Version(Samples.PluginId, record);
         return record;
@@ -84,7 +85,7 @@ public sealed class ArtifactPublisherTests : IDisposable
     public async Task StopsWhenTheBuildOutputDoesNotMatchTheRecord()
     {
         var record = await MergeAsync("1.0.0");
-        await File.WriteAllTextAsync(Path.Combine(_artifacts.Folders[(RunId, WorkflowArtifacts.Package)], "lumen.todo-1.0.0.source.tar.gz"), "tampered", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_artifacts.Folders[(RunId, WorkflowArtifacts.Package(Samples.PluginId, SemanticVersion.Parse("1.0.0")))], "lumen.todo-1.0.0.source.tar.gz"), "tampered", TestContext.Current.CancellationToken);
 
         var exception = await Assert.ThrowsAsync<ToolException>(PublishAsync);
 

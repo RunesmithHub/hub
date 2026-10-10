@@ -1,13 +1,15 @@
+using RunesmithHub.Protocol.Versioning;
+
 namespace RunesmithHub.Tool.Publishing;
 
-/// <summary>The artifacts the build workflow uploads for each version.</summary>
+/// <summary>The artifacts the build workflow uploads for each version, named for the plugin and version because one run can build several.</summary>
 internal static class WorkflowArtifacts
 {
     /// <summary>The first build's output: package, contracts package, source archive, SBOM and images.</summary>
-    public const string Package = "package";
+    public static string Package(string plugin, SemanticVersion version) => $"package-{plugin}-{version}";
 
     /// <summary>The public analysis: <c>analysis.json</c>, <c>summary.md</c> and <c>build-info.json</c>.</summary>
-    public const string Analysis = "analysis";
+    public static string Analysis(string plugin, SemanticVersion version) => $"analysis-{plugin}-{version}";
 }
 
 /// <summary>Gets workflow artifacts of the registry's runs.</summary>
