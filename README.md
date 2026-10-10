@@ -55,7 +55,7 @@ dotnet run --project src/RunesmithHub.Tool -- --help
 | Command | Does |
 | --- | --- |
 | `rshub check [path]` | Builds, packages and analyses a plugin as the hub does, and prints the report |
-| `rshub build prepare` / `build package` / `build compare` | The hub's build steps: check the source and plan the build, assemble the package with its contracts package, images, SBOM and source archive, compare two builds |
+| `rshub build prepare` / `build package` / `build compare` | The hub's build steps: check the source, plan the build and archive the source, assemble the package with its contracts package, images and SBOM, compare two builds |
 | `rshub analyse` | The hub's analysis of a built package against the previous version |
 | `rshub findings decrypt --key <file> <file>` | Decrypts review findings for administrators |
 | `rshub keys generate --out <file>` | Generates a P-256 key encrypted with a passphrase, and writes its public key beside it |

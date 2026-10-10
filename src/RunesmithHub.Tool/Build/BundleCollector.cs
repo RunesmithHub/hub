@@ -40,7 +40,7 @@ internal static class BundleCollector
                     continue;
                 }
 
-                if (!library.IsProject && !File.Exists(Path.Combine(implementation.Directory, fileName))
+                if (!library.IsProject && !CheckoutPaths.FileExists(implementation.Directory, Path.Combine(implementation.Directory, fileName))
                     && frameworks.Supplies(library.Name, library.Version, fileName, implementation.Assets.RestoredFile(library, asset)))
                     continue;
 
@@ -77,7 +77,7 @@ internal static class BundleCollector
                 continue;
             }
 
-            if (!File.Exists(Path.Combine(implementation.Directory, content.OutputPath)))
+            if (!CheckoutPaths.FileExists(implementation.Directory, Path.Combine(implementation.Directory, content.OutputPath)))
                 continue;
             var packagePath = LibFolder + content.OutputPath;
             var problem = packagePath.StartsWith(PackageEntryRules.NativePrefix, StringComparison.OrdinalIgnoreCase)
@@ -95,7 +95,7 @@ internal static class BundleCollector
     {
         var source = Path.Combine(implementation.Directory, outputRelative);
         var origin = library.IsProject ? $"the project {library.Name}" : $"{library.Name} {library.Version}";
-        if (!File.Exists(source))
+        if (!CheckoutPaths.FileExists(implementation.Directory, source))
         {
             problems.Add($"{outputRelative.Replace('\\', '/')} from {origin} is not in the build output; set EnableDynamicLoading to true in the implementation project so the build copies it.");
             return;

@@ -35,7 +35,7 @@ internal sealed class BundleVerifier(INuGetPackageSource packages)
             foreach (var item in group)
             {
                 var expected = package.ReadFile(item.PathInPackage!);
-                var actual = await File.ReadAllBytesAsync(item.SourceFile, cancellationToken).ConfigureAwait(false);
+                var actual = CheckoutPaths.ReadFile(Path.GetDirectoryName(item.SourceFile)!, item.SourceFile);
                 if (expected is null || !expected.AsSpan().SequenceEqual(actual))
                     problems.Add($"{(item.IsNative ? item.FileName : item.LibPath)} in the build output differs from {item.PathInPackage} in {id} {version}.");
             }

@@ -15,7 +15,8 @@ public sealed class BuildPreparerTests : IDisposable
     private readonly TemporaryFolder _folder = new();
     private readonly FakeProcesses _git = new FakeProcesses()
         .Answer("git rev-parse HEAD", Commit + "\n")
-        .Answer($"git ls-tree -r {Commit}", "100644 blob 1111111111111111111111111111111111111111\tplugin.json\n");
+        .Answer($"git ls-tree -r {Commit}", "100644 blob 1111111111111111111111111111111111111111\tplugin.json\n")
+        .WritesArchives();
 
     public BuildPreparerTests()
     {
@@ -133,6 +134,39 @@ public sealed class BuildPreparerTests : IDisposable
         var exception = await Assert.ThrowsAsync<ToolException>(() => PrepareAsync());
 
         Assert.Contains("locks Runesmith.Sdk 0.1.3; it must reference 0.1.0", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WritesTheSourceArchiveOfTheReleaseCommitWithThePlan()
+    {
+        var plan = await PrepareAsync();
+
+        Assert.Equal(_folder.Combine("build", "lumen.sample-1.0.0.source.tar.gz"), plan.SourceArchive);
+        Assert.True(File.Exists(plan.SourceArchive));
+        Assert.Contains(_git.Runs, run => run.StartsWith("git archive --format=tar --prefix=lumen.sample-1.0.0/ -o ", StringComparison.Ordinal) && run.EndsWith(" " + Commit, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GitRunsWithExplicitRepositoryAndNoConfigFromTheWorkTree()
+    {
+        await PrepareAsync();
+
+        Assert.NotEmpty(_git.Runs);
+        Assert.All(_git.WorkingDirectories, directory => Assert.Equal(Root, directory));
+        foreach (var environment in _git.Environments)
+        {
+            Assert.Equal(Path.Combine(Root, ".git"), environment["GIT_DIR"]);
+            Assert.Equal(Root, environment["GIT_WORK_TREE"]);
+            Assert.Equal(_folder.Path, environment["GIT_CEILING_DIRECTORIES"]);
+            Assert.Equal("1", environment["GIT_CONFIG_NOSYSTEM"]);
+            Assert.Equal("/dev/null", environment["GIT_CONFIG_GLOBAL"]);
+            Assert.Equal("1", environment["GIT_ATTR_NOSYSTEM"]);
+            var settings = Enumerable.Range(0, int.Parse(environment["GIT_CONFIG_COUNT"]!, System.Globalization.CultureInfo.InvariantCulture))
+                .ToDictionary(i => environment[$"GIT_CONFIG_KEY_{i}"]!, i => environment[$"GIT_CONFIG_VALUE_{i}"]);
+            Assert.Equal("/dev/null", settings["core.hooksPath"]);
+            Assert.Equal("false", settings["core.fsmonitor"]);
+            Assert.Equal("/dev/null", settings["core.attributesFile"]);
+        }
     }
 
     [Fact]

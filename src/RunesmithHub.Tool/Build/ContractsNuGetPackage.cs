@@ -25,22 +25,24 @@ internal static class ContractsNuGetPackage
     public static string FileName(string id, string version) => $"{id}.{version}.nupkg";
 
     /// <summary>Writes the package with the contracts assembly, its documentation when there is one, and the hub packages it was built against.</summary>
+    /// <param name="assembly">The contracts assembly's bytes.</param>
+    /// <param name="documentation">The contracts assembly's XML documentation, or null.</param>
     /// <param name="hubPackages">The <c>Runesmith.*</c> and <c>RunesmithHub.*</c> packages the contracts project's lock file pins.</param>
-    public static byte[] Create(PackagedManifest manifest, ProjectOutput contracts, IEnumerable<LockedPackage> hubPackages)
+    public static byte[] Create(PackagedManifest manifest, ProjectOutput contracts, byte[] assembly, byte[]? documentation, IEnumerable<LockedPackage> hubPackages)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(contracts);
+        ArgumentNullException.ThrowIfNull(assembly);
         var id = Id(contracts.AssemblyFile);
         var lib = $"lib/{contracts.Assets.TargetFramework}/";
         var entries = new SortedDictionary<string, byte[]>(StringComparer.Ordinal)
         {
             [ContentTypesEntry] = Encoding.UTF8.GetBytes(ContentTypes()),
             [id + ".nuspec"] = Encoding.UTF8.GetBytes(Nuspec(manifest, id, contracts.Assets.TargetFramework, hubPackages)),
-            [lib + contracts.AssemblyFile] = File.ReadAllBytes(contracts.AssemblyPath),
+            [lib + contracts.AssemblyFile] = assembly,
         };
-        var documentation = Path.ChangeExtension(contracts.AssemblyPath, ".xml");
-        if (File.Exists(documentation))
-            entries[lib + Path.GetFileName(documentation)] = File.ReadAllBytes(documentation);
+        if (documentation is not null)
+            entries[lib + contracts.DocumentationFile] = documentation;
 
         using var buffer = new MemoryStream();
         using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))

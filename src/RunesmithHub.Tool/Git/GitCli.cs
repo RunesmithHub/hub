@@ -8,7 +8,7 @@ internal sealed class GitCli(IProcessRunner processes, string root) : IGitReposi
 {
     public async Task<IReadOnlyList<ChangedPath>> DiffAsync(string fromRef, string toRef, CancellationToken cancellationToken)
     {
-        var output = await RunAsync(["diff", "--name-status", "--no-renames", "-z", fromRef, toRef, "--"], cancellationToken).ConfigureAwait(false);
+        var output = await RunAsync(["diff", "--no-ext-diff", "--no-textconv", "--name-status", "--no-renames", "-z", fromRef, toRef, "--"], cancellationToken).ConfigureAwait(false);
         var parts = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         var changes = new List<ChangedPath>();
         for (var i = 0; i + 1 < parts.Length; i += 2)
@@ -27,19 +27,19 @@ internal sealed class GitCli(IProcessRunner processes, string root) : IGitReposi
 
     public async Task<byte[]?> ShowAsync(string gitRef, string path, CancellationToken cancellationToken)
     {
-        var result = await processes.RunAsync("git", ["cat-file", "blob", $"{gitRef}:{path}"], root, cancellationToken).ConfigureAwait(false);
+        var result = await GitProcess.RunAsync(processes, root, ["cat-file", "blob", $"{gitRef}:{path}"], cancellationToken).ConfigureAwait(false);
         return result.Succeeded ? Encoding.UTF8.GetBytes(result.Output) : null;
     }
 
     public async Task<IReadOnlyList<string>> ListAsync(string gitRef, string directory, CancellationToken cancellationToken)
     {
-        var result = await processes.RunAsync("git", ["ls-tree", "-r", "-z", "--name-only", gitRef, "--", directory.TrimEnd('/') + "/"], root, cancellationToken).ConfigureAwait(false);
+        var result = await GitProcess.RunAsync(processes, root, ["ls-tree", "-r", "-z", "--name-only", gitRef, "--", directory.TrimEnd('/') + "/"], cancellationToken).ConfigureAwait(false);
         return result.Succeeded ? result.Output.Split('\0', StringSplitOptions.RemoveEmptyEntries) : [];
     }
 
     public async Task<string?> CommitAddingAsync(string gitRef, string path, CancellationToken cancellationToken)
     {
-        var output = await RunAsync(["log", gitRef, "--diff-filter=A", "--format=%H", "-1", "--", path], cancellationToken).ConfigureAwait(false);
+        var output = await RunAsync(["log", "--no-ext-diff", "--no-textconv", gitRef, "--diff-filter=A", "--format=%H", "-1", "--", path], cancellationToken).ConfigureAwait(false);
         var sha = output.Trim();
         return sha.Length == 0 ? null : sha;
     }
@@ -49,7 +49,7 @@ internal sealed class GitCli(IProcessRunner processes, string root) : IGitReposi
 
     private async Task<string> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
-        var result = await processes.RunAsync("git", arguments, root, cancellationToken).ConfigureAwait(false);
+        var result = await GitProcess.RunAsync(processes, root, arguments, cancellationToken).ConfigureAwait(false);
         return result.Succeeded ? result.Output : throw new ToolException($"git {arguments[0]} failed: {result.Error.Trim()}");
     }
 }

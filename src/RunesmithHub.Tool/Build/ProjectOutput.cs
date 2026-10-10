@@ -1,5 +1,6 @@
 using System.Xml;
 using System.Xml.Linq;
+using RunesmithHub.Protocol;
 using RunesmithHub.Tool.NuGet;
 
 namespace RunesmithHub.Tool.Build;
@@ -13,25 +14,30 @@ internal sealed record ProjectOutput(string AssemblyName, string Directory, Asse
 
     public string AssemblyPath => Path.Combine(Directory, AssemblyFile);
 
-    /// <summary>Finds a built project's output in <c>bin/Release/&lt;framework&gt;/</c>.</summary>
-    /// <exception cref="ToolException">The project was not restored and built, or its assembly name is computed.</exception>
-    public static ProjectOutput Locate(string projectFile)
+    public string DocumentationFile => AssemblyName + ".xml";
+
+    /// <summary>Finds a built project's output in <c>bin/Release/&lt;framework&gt;/</c>, reading only regular files inside the plugin's folder.</summary>
+    /// <exception cref="ToolException">The project was not restored and built, its assembly name is computed, or a file it needs is a symbolic link or outside the plugin's folder.</exception>
+    public static ProjectOutput Locate(string pluginRoot, string projectFile)
     {
-        var assets = AssetsFile.Read(AssetsFile.PathFor(projectFile));
-        var name = AssemblyNameOf(projectFile);
+        var assets = AssetsFile.Read(pluginRoot, AssetsFile.PathFor(projectFile));
+        var name = AssemblyNameOf(pluginRoot, projectFile);
+        if (!RelativePaths.IsSafe(assets.TargetFramework))
+            throw new ToolException($"{AssetsFile.PathFor(projectFile)} names the target framework \"{assets.TargetFramework}\".");
         var directory = Path.Combine(Path.GetDirectoryName(projectFile)!, "bin", Configuration, assets.TargetFramework);
         var output = new ProjectOutput(name, directory, assets);
-        return File.Exists(output.AssemblyPath)
+        CheckoutPaths.EnsureNoLinks(pluginRoot, directory);
+        return CheckoutPaths.FileExists(pluginRoot, output.AssemblyPath)
             ? output
             : throw new ToolException($"{output.AssemblyPath} does not exist; build {Path.GetFileName(projectFile)} in {Configuration} first.");
     }
 
-    private static string AssemblyNameOf(string projectFile)
+    private static string AssemblyNameOf(string pluginRoot, string projectFile)
     {
         XDocument project;
         try
         {
-            using var reader = XmlReader.Create(projectFile, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            using var reader = XmlReader.Create(new MemoryStream(CheckoutPaths.ReadFile(pluginRoot, projectFile)), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
             project = XDocument.Load(reader);
         }
         catch (XmlException exception)

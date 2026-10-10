@@ -37,9 +37,8 @@ internal sealed record PluginSource(string Root, DeveloperManifest Manifest)
         ArgumentNullException.ThrowIfNull(expectations);
         root = Path.GetFullPath(root);
         var path = Path.Combine(root, DeveloperManifest.FileName);
-        if (!File.Exists(path))
+        if (!CheckoutPaths.FileExists(root, path))
             throw new ToolException($"{path} does not exist.");
-        CheckoutPaths.EnsureNoLinks(root, path);
 
         var options = ManifestValidationOptions.Default with
         {
@@ -47,15 +46,12 @@ internal sealed record PluginSource(string Root, DeveloperManifest Manifest)
             ExpectedRepository = expectations.Repository,
             ExpectedVersion = expectations.Version,
         };
-        var result = ManifestValidator.Validate(File.ReadAllBytes(path), options);
+        var result = ManifestValidator.Validate(CheckoutPaths.ReadFile(root, path), options);
         if (!result.IsValid)
             throw new ToolException($"{DeveloperManifest.FileName} is not valid:\n" + string.Join("\n", result.Problems.Select(problem => $"  {problem}")));
         return new PluginSource(root, result.Manifest);
     }
 
-    private IReadOnlyList<LockedPackage> ReadLockFile(string path)
-    {
-        CheckoutPaths.EnsureNoLinks(Root, path);
-        return File.Exists(path) ? LockFile.Read(path) : throw new ToolException($"{Path.GetRelativePath(Root, path).Replace('\\', '/')} is missing.");
-    }
+    private IReadOnlyList<LockedPackage> ReadLockFile(string path) =>
+        CheckoutPaths.FileExists(Root, path) ? LockFile.Read(Root, path) : throw new ToolException($"{Path.GetRelativePath(Root, path).Replace('\\', '/')} is missing.");
 }

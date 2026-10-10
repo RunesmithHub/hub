@@ -45,6 +45,10 @@ public sealed class SleetFeedPublisherTests
     {
         public JsonNode? Settings { get; private set; }
 
+        public Task<ProcessResult> RunAsync(
+            string program, IReadOnlyList<string> arguments, string workingDirectory, IReadOnlyDictionary<string, string?> environment, CancellationToken cancellationToken = default) =>
+            RunAsync(program, arguments, workingDirectory, cancellationToken);
+
         public async Task<ProcessResult> RunAsync(string program, IReadOnlyList<string> arguments, string workingDirectory, CancellationToken cancellationToken = default)
         {
             var config = arguments[arguments.ToList().IndexOf("--config") + 1];

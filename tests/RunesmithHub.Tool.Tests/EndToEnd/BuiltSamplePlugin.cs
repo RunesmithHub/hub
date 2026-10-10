@@ -21,6 +21,9 @@ public sealed class BuiltSamplePlugin : IAsyncLifetime
 
     internal string Commit { get; private set; } = "";
 
+    /// <summary>Gets the source archive the preparation wrote.</summary>
+    internal string SourceArchive { get; private set; } = "";
+
     internal string Folder(string name) => _folder.Combine(name);
 
     public async ValueTask InitializeAsync()
@@ -42,6 +45,7 @@ public sealed class BuiltSamplePlugin : IAsyncLifetime
 
         var request = new PrepareRequest(Repository, ".", new PluginExpectations(SamplePlugin.Id, "https://github.com/lumen/sample", SamplePlugin.Version), Commit, _folder.Combine("build"), new Uri(NuGetFeeds.DefaultHubFeed));
         var plan = await new BuildPreparer(new GitCheckout(_processes)).PrepareAsync(request);
+        SourceArchive = plan.SourceArchive!;
         await RunAsync(Repository, "dotnet", ["restore", plan.Projects.Implementation, .. plan.PropertyArguments]);
         await RunAsync(Repository, "dotnet", ["build", plan.Projects.Implementation, "--no-restore", .. plan.PropertyArguments]);
         Available = true;

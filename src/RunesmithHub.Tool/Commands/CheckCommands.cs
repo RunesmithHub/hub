@@ -4,7 +4,6 @@ using RunesmithHub.Tool.Analysis.Reporting;
 using RunesmithHub.Tool.Analysis.Vulnerabilities;
 using RunesmithHub.Tool.Build;
 using RunesmithHub.Tool.Check;
-using RunesmithHub.Tool.Git;
 using RunesmithHub.Tool.NuGet;
 using RunesmithHub.Tool.Processes;
 
@@ -33,7 +32,7 @@ internal static class CheckCommands
                 !result.GetValue(noBuild),
                 NuGetFeeds.HubFeed(result.GetValue(feed), context.GetEnvironmentVariable));
             var packages = BuildCommands.PackageSource(context, result.GetValue(feed), result.GetValue(cache) ?? GlobalPackagesFolder(context));
-            var assembler = new PackageAssembler(new BundleVerifier(packages), new SourceArchiver(new GitCheckout(context.Services.Processes)), SharedFrameworks.DefaultRoots(context.GetEnvironmentVariable));
+            var assembler = new PackageAssembler(new BundleVerifier(packages), SharedFrameworks.DefaultRoots(context.GetEnvironmentVariable));
             var check = new DeveloperCheck(context.Services.Processes, assembler, new PluginAnalyzer(new OsvDatabase(context.Services.Http()), packages, context.Time), context.Time, writer);
             var analysis = await check.RunAsync(request, cancellationToken).ConfigureAwait(false);
             await writer.WriteLineAsync().ConfigureAwait(false);

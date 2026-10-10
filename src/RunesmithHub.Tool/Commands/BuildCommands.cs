@@ -41,7 +41,7 @@ internal static class BuildCommands
         var registration = new Option<string>("--registration") { Description = "The plugin's registration.json.", Required = true };
         var tag = new Option<string>("--tag") { Description = "The release tag, such as v1.4.0.", Required = true };
         var commit = new Option<string>("--commit") { Description = "The full SHA of the commit the tag points to.", Required = true };
-        var output = new Option<string>("--output") { Description = "The folder to write the NuGet configuration and MSBuild properties to.", DefaultValueFactory = _ => "hub-build" };
+        var output = new Option<string>("--output") { Description = "The folder to write the NuGet configuration, MSBuild properties and source archive to.", DefaultValueFactory = _ => "hub-build" };
         var feed = FeedOption();
         var command = new Command("prepare", "Check the plugin's source at the release commit and print the build plan as JSON.") { source, registration, tag, commit, output, feed };
         command.SetAction((result, cancellationToken) => CommandRunner.RunAsync(result, async writer =>
@@ -59,6 +59,7 @@ internal static class BuildCommands
             ActionsOutput.Set(context, "implementation", plan.Projects.Implementation);
             ActionsOutput.Set(context, "properties", plan.Properties);
             ActionsOutput.Set(context, "dotnet-sdk", plan.DotnetSdk);
+            ActionsOutput.Set(context, "source-archive", plan.SourceArchive ?? "");
             await writer.WriteAsync(ArtifactJson.SerializeToString(plan)).ConfigureAwait(false);
             return 0;
         }));
@@ -70,6 +71,7 @@ internal static class BuildCommands
         var source = new Option<string>("--source") { Description = "The plugin's folder, restored and built.", Required = true };
         var output = new Option<string>("--output") { Description = "An empty folder for the package and everything published beside it.", Required = true };
         var commit = new Option<string>("--commit") { Description = "The full SHA of the commit that was built.", Required = true };
+        var archive = new Option<string>("--source-archive") { Description = "The source archive rshub build prepare wrote.", Required = true };
         var run = new Option<string>("--run") { Description = "The URL of the pipeline run.", Required = true };
         var registration = new Option<string>("--registration") { Description = "The plugin's registration.json, for raised size limits." };
         var cache = new Option<string>("--package-cache") { Description = "A folder of .nupkg files to read packages from before downloading them." };
@@ -77,7 +79,7 @@ internal static class BuildCommands
         var feed = FeedOption();
         var command = new Command("package", "Assemble the package, images, SBOM, source archive and hash list from a built plugin.")
         {
-            source, output, commit, run, registration, cache, sdk, feed,
+            source, output, commit, archive, run, registration, cache, sdk, feed,
         };
         command.SetAction((result, cancellationToken) => CommandRunner.RunAsync(result, async writer =>
         {
@@ -85,11 +87,10 @@ internal static class BuildCommands
             var limits = result.GetValue(registration) is { } path ? PackageLimits.From(RegistrationFile.Read(path).Limits) : PackageLimits.Default;
             var request = new PackageRequest(
                 root, result.GetRequiredValue(output), result.GetRequiredValue(commit), result.GetRequiredValue(run),
-                result.GetValue(sdk) ?? await DotnetSdkAsync(context, root, cancellationToken).ConfigureAwait(false), ArchiveSource: true)
+                result.GetValue(sdk) ?? await DotnetSdkAsync(context, root, cancellationToken).ConfigureAwait(false), result.GetRequiredValue(archive))
             { Limits = limits };
-            var git = new GitCheckout(context.Services.Processes);
             var assembler = new PackageAssembler(
-                new BundleVerifier(PackageSource(context, result.GetValue(feed), result.GetValue(cache))), new SourceArchiver(git), SharedFrameworks.DefaultRoots(context.GetEnvironmentVariable));
+                new BundleVerifier(PackageSource(context, result.GetValue(feed), result.GetValue(cache))), SharedFrameworks.DefaultRoots(context.GetEnvironmentVariable));
             var package = await assembler.AssembleAsync(request, cancellationToken).ConfigureAwait(false);
             await writer.WriteLineAsync($"Wrote {package.PackageFile}; {HashList.FileName} lists all {package.Hashes.Files.Count} output files.").ConfigureAwait(false);
             return 0;

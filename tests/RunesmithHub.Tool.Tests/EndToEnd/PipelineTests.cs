@@ -64,7 +64,7 @@ public sealed class PipelineTests : IDisposable
         foreach (var output in new[] { first, second })
         {
             await RunAsync("build", "package", "--source", repository, "--output", output, "--commit", commit, "--run", HubLocations.RunUrl(RunId),
-                "--registration", registration, "--sdk", plan.GetProperty("dotnetSdk").GetString()!);
+                "--registration", registration, "--sdk", plan.GetProperty("dotnetSdk").GetString()!, "--source-archive", plan.GetProperty("sourceArchive").GetString()!);
         }
 
         Assert.Contains("identical", await RunAsync("build", "compare", Path.Combine(first, "hashes.json"), Path.Combine(second, "hashes.json")), StringComparison.Ordinal);

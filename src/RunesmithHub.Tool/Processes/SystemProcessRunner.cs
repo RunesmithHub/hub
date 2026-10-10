@@ -6,8 +6,13 @@ namespace RunesmithHub.Tool.Processes;
 /// <summary>Runs programs as child processes, without a shell.</summary>
 internal sealed class SystemProcessRunner : IProcessRunner
 {
-    public async Task<ProcessResult> RunAsync(string program, IReadOnlyList<string> arguments, string workingDirectory, CancellationToken cancellationToken = default)
+    public Task<ProcessResult> RunAsync(string program, IReadOnlyList<string> arguments, string workingDirectory, CancellationToken cancellationToken = default) =>
+        RunAsync(program, arguments, workingDirectory, new Dictionary<string, string?>(), cancellationToken);
+
+    public async Task<ProcessResult> RunAsync(
+        string program, IReadOnlyList<string> arguments, string workingDirectory, IReadOnlyDictionary<string, string?> environment, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(environment);
         var start = new ProcessStartInfo(program)
         {
             WorkingDirectory = workingDirectory,
@@ -17,6 +22,13 @@ internal sealed class SystemProcessRunner : IProcessRunner
         };
         foreach (var argument in arguments)
             start.ArgumentList.Add(argument);
+        foreach (var (name, value) in environment)
+        {
+            if (value is null)
+                start.Environment.Remove(name);
+            else
+                start.Environment[name] = value;
+        }
 
         using var process = new Process { StartInfo = start };
         try

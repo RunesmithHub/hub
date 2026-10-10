@@ -2,8 +2,6 @@ using RunesmithHub.Protocol.Packaging;
 using RunesmithHub.Tool.Analysis;
 using RunesmithHub.Tool.Analysis.Reporting;
 using RunesmithHub.Tool.Build;
-using RunesmithHub.Tool.Git;
-using RunesmithHub.Tool.Processes;
 using RunesmithHub.Tool.Tests.Support;
 
 namespace RunesmithHub.Tool.Tests.EndToEnd;
@@ -12,10 +10,10 @@ public sealed class EndToEndTests(BuiltSamplePlugin sample) : IClassFixture<Buil
 {
     private const string Repository = "https://github.com/lumen/sample";
 
-    private static PackageAssembler Assembler() => new(new BundleVerifier(new NoPackages()), new SourceArchiver(new GitCheckout(new SystemProcessRunner())), SharedFrameworks.DefaultRoots(Environment.GetEnvironmentVariable));
+    private static PackageAssembler Assembler() => new(new BundleVerifier(new NoPackages()), SharedFrameworks.DefaultRoots(Environment.GetEnvironmentVariable));
 
     private Task<PackageResult> PackageAsync(string root, string output, bool archiveSource = true) =>
-        Assembler().AssembleAsync(new PackageRequest(root, sample.Folder(output), sample.Commit, "https://github.com/RunesmithHub/registry/actions/runs/1", "10.0.400", archiveSource), TestContext.Current.CancellationToken);
+        Assembler().AssembleAsync(new PackageRequest(root, sample.Folder(output), sample.Commit, "https://github.com/RunesmithHub/registry/actions/runs/1", "10.0.400", archiveSource ? sample.SourceArchive : null), TestContext.Current.CancellationToken);
 
     private Task<AnalysisResult> AnalyseAsync(string package, string source) =>
         new PluginAnalyzer(new FakeVulnerabilities(), new NoPackages(), TimeProvider.System).AnalyseAsync(
@@ -152,12 +150,44 @@ public sealed class EndToEndTests(BuiltSamplePlugin sample) : IClassFixture<Buil
     }
 
     [Fact]
+    public async Task ReadsNoBuildOutputThroughASymbolicLink()
+    {
+        SkipUnlessBuilt();
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating symbolic links needs extra rights on Windows.");
+        var copy = sample.Folder("output-link");
+        CopyWithoutGit(sample.Repository, copy);
+        var symbols = Path.Combine(copy, "Lumen.Sample", "bin", "Release", "net10.0", "Lumen.Sample.pdb");
+        File.Delete(symbols);
+        File.CreateSymbolicLink(symbols, Path.Combine(sample.Folder("sdk"), "out", "Runesmith.Sdk.dll"));
+
+        var exception = await Assert.ThrowsAsync<ToolException>(() => PackageAsync(copy, "output-link-package", archiveSource: false));
+
+        Assert.Contains("Lumen.Sample/bin/Release/net10.0/Lumen.Sample.pdb is a symbolic link", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadsNoRestoreOutputThroughALinkedFolder()
+    {
+        SkipUnlessBuilt();
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating symbolic links needs extra rights on Windows.");
+        var copy = sample.Folder("obj-link");
+        CopyWithoutGit(sample.Repository, copy);
+        var obj = Path.Combine(copy, "Lumen.Sample", "obj");
+        Directory.Move(obj, Path.Combine(sample.Folder("obj-link-target")));
+        Directory.CreateSymbolicLink(obj, sample.Folder("obj-link-target"));
+
+        var exception = await Assert.ThrowsAsync<ToolException>(() => PackageAsync(copy, "obj-link-package", archiveSource: false));
+
+        Assert.Contains("Lumen.Sample/obj is a symbolic link", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ThePackageCommandWritesTheOutputsOfTheBuildJob()
     {
         SkipUnlessBuilt();
 
         var (exitCode, output, error) = await new ToolRunner().RunAsync(
-            "build", "package", "--source", sample.Repository, "--output", sample.Folder("command"), "--commit", sample.Commit, "--run", "https://github.com/RunesmithHub/registry/actions/runs/1");
+            "build", "package", "--source", sample.Repository, "--output", sample.Folder("command"), "--commit", sample.Commit, "--source-archive", sample.SourceArchive, "--run", "https://github.com/RunesmithHub/registry/actions/runs/1");
 
         Assert.True(exitCode == 0, error);
         Assert.Contains("lumen.sample-1.0.0.rsplugin; hashes.json lists all 9 output files.", output, StringComparison.Ordinal);

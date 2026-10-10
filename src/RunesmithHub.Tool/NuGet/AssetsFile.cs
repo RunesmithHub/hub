@@ -40,18 +40,25 @@ internal sealed record AssetsFile(string TargetFramework, IReadOnlyList<AssetLib
     {
         ArgumentNullException.ThrowIfNull(library);
         return library.PackageFolder is { } folder
-            ? PackageFolders.Select(packages => Path.Combine(packages, folder, pathInPackage)).FirstOrDefault(File.Exists)
+            ? PackageFolders.Select(packages => (Root: packages, File: Path.Combine(packages, folder, pathInPackage)))
+                .Where(candidate => Build.CheckoutPaths.FileExists(candidate.Root, candidate.File)).Select(candidate => candidate.File).FirstOrDefault()
             : null;
     }
 
     /// <exception cref="ToolException">The file is missing, not an assets file, or has more than one target framework.</exception>
-    public static AssetsFile Read(string path)
+    public static AssetsFile Read(string path) =>
+        File.Exists(path) ? Parse(File.ReadAllBytes(path), path) : throw new ToolException($"{path} does not exist; restore the project first.");
+
+    /// <summary>Reads an assets file that must be a regular file inside a root folder.</summary>
+    /// <exception cref="ToolException">The file is missing, a symbolic link, outside the root, not an assets file, or has more than one target framework.</exception>
+    public static AssetsFile Read(string root, string path) =>
+        Build.CheckoutPaths.FileExists(root, path) ? Parse(Build.CheckoutPaths.ReadFile(root, path), path) : throw new ToolException($"{path} does not exist; restore the project first.");
+
+    private static AssetsFile Parse(byte[] bytes, string path)
     {
-        if (!File.Exists(path))
-            throw new ToolException($"{path} does not exist; restore the project first.");
         try
         {
-            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+            using var document = JsonDocument.Parse(bytes);
             var root = document.RootElement;
             var frameworks = root.GetProperty("project").GetProperty("frameworks").EnumerateObject().ToList();
             var targets = root.GetProperty("targets").EnumerateObject().Where(target => !target.Name.Contains('/', StringComparison.Ordinal)).ToList();

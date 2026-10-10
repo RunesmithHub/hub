@@ -23,7 +23,7 @@ public sealed class BuildCommandsTests : IDisposable
         var registration = TestRegistrations.For(SamplePlugin.Id, "https://github.com/lumen/sample");
         registration = registration with { Repository = registration.Repository with { Path = "plugins/sample", TagPrefix = "release-" } };
         File.WriteAllBytes(_folder.Combine("registration.json"), RegistryJson.Serialize(registration));
-        var tool = new ToolRunner { Processes = new FakeProcesses().Answer("git rev-parse HEAD", Commit).Answer($"git ls-tree -r {Commit}", "") };
+        var tool = new ToolRunner { Processes = new FakeProcesses().Answer("git rev-parse HEAD", Commit).Answer($"git ls-tree -r {Commit}", "").WritesArchives() };
         tool.Environment[NuGetFeeds.HubFeedVariable] = "https://feed.example/index.json";
         tool.Environment["GITHUB_OUTPUT"] = _folder.Combine("github-output");
 
@@ -37,7 +37,7 @@ public sealed class BuildCommandsTests : IDisposable
         Assert.Contains("https://feed.example/index.json", await File.ReadAllTextAsync(_folder.Combine("build", NuGetConfigWriter.FileName), TestContext.Current.CancellationToken), StringComparison.Ordinal);
         var outputs = await File.ReadAllLinesAsync(_folder.Combine("github-output"), TestContext.Current.CancellationToken);
         Assert.Equal(
-            [$"plugin-root={root}", $"implementation={Path.Combine(root, "Lumen.Sample", "Lumen.Sample.csproj")}", $"properties={_folder.Combine("build", "hub-build.rsp")}", "dotnet-sdk=10.0.401"],
+            [$"plugin-root={root}", $"implementation={Path.Combine(root, "Lumen.Sample", "Lumen.Sample.csproj")}", $"properties={_folder.Combine("build", "hub-build.rsp")}", "dotnet-sdk=10.0.401", $"source-archive={_folder.Combine("build", "lumen.sample-1.0.0.source.tar.gz")}"],
             outputs);
     }
 

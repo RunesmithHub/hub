@@ -26,8 +26,9 @@ internal sealed class DeveloperCheck(IProcessRunner processes, PackageAssembler 
             Clear(Path.Combine(output, folder));
 
         var git = new GitCheckout(processes);
-        var repositoryRoot = await git.IsRepositoryAsync(root, cancellationToken).ConfigureAwait(false) ? await git.TopLevelAsync(root, cancellationToken).ConfigureAwait(false) : root;
-        var commit = await CommitAsync(git, repositoryRoot, cancellationToken).ConfigureAwait(false);
+        var repository = GitProcess.FindRepositoryRoot(root);
+        var repositoryRoot = repository ?? root;
+        var commit = repository is null ? null : await CommitAsync(git, repository, cancellationToken).ConfigureAwait(false);
         var pluginPath = Path.GetRelativePath(repositoryRoot, root).Replace('\\', '/');
 
         await log.WriteLineAsync("Checking the source...").ConfigureAwait(false);
@@ -45,7 +46,7 @@ internal sealed class DeveloperCheck(IProcessRunner processes, PackageAssembler 
         await log.WriteLineAsync("Packaging...").ConfigureAwait(false);
         var sdk = (await processes.RunAsync("dotnet", ["--version"], root, cancellationToken).ConfigureAwait(false)).OutputOrThrow("dotnet --version").Trim();
         var package = await assembler.AssembleAsync(
-            new PackageRequest(root, Path.Combine(output, PackageFolder), commit ?? new string('0', 40), "local", sdk, ArchiveSource: commit is not null),
+            new PackageRequest(root, Path.Combine(output, PackageFolder), commit ?? new string('0', 40), "local", sdk, plan.SourceArchive),
             cancellationToken).ConfigureAwait(false);
 
         await log.WriteLineAsync("Analysing...").ConfigureAwait(false);

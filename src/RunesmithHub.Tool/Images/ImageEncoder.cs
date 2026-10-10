@@ -61,7 +61,7 @@ internal static class ImageEncoder
     private static SKBitmap? Decode(string root, string relativePath, ImageRules rules, List<string> problems)
     {
         var path = Path.Combine(root, relativePath);
-        var bytes = File.ReadAllBytes(path);
+        var bytes = Build.CheckoutPaths.ReadFile(root, path);
         using var data = SKData.CreateCopy(bytes);
         using var codec = SKCodec.Create(data);
         if (codec is null)

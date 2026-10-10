@@ -7,7 +7,7 @@ namespace RunesmithHub.Tool.Build;
 
 /// <summary>
 /// Checks a plugin's source at the release commit before anything of it runs, and writes the NuGet configuration and MSBuild properties
-/// the build must use.
+/// the build must use, and the archive of the commit's source the hub publishes.
 /// </summary>
 internal sealed class BuildPreparer(GitCheckout git)
 {
@@ -37,6 +37,14 @@ internal sealed class BuildPreparer(GitCheckout git)
         await File.WriteAllTextAsync(nugetConfig, NuGetConfigWriter.Create(request.HubFeed), cancellationToken).ConfigureAwait(false);
         var arguments = BuildProperties.Arguments(repositoryRoot, nugetConfig, source.Version, runesmithSdk);
         await File.WriteAllTextAsync(properties, BuildProperties.ResponseFile(arguments), cancellationToken).ConfigureAwait(false);
+        string? archive = null;
+        if (request.Commit is { } archived)
+        {
+            var version = source.Version.ToString();
+            archive = Path.Combine(output, BuildArtifacts.Source(source.Id, version));
+            var bytes = await new SourceArchiver(git).CreateAsync(repositoryRoot, archived, $"{source.Id}-{version}", cancellationToken).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(archive, bytes, cancellationToken).ConfigureAwait(false);
+        }
 
         return new BuildPlan(
             source.Id,
@@ -48,7 +56,8 @@ internal sealed class BuildPreparer(GitCheckout git)
             runesmithSdk.ToString(),
             nugetConfig,
             properties,
-            arguments);
+            arguments,
+            archive);
     }
 
     private async Task CheckRepositoryAsync(string repositoryRoot, string commit, CancellationToken cancellationToken)
@@ -85,7 +94,7 @@ internal sealed class BuildPreparer(GitCheckout git)
             var lockFile = LockFile.PathFor(project);
             if (!File.Exists(lockFile))
                 continue;
-            foreach (var package in LockFile.Read(lockFile).Where(package => string.Equals(package.Id, RunesmithSdkPackage, StringComparison.OrdinalIgnoreCase)))
+            foreach (var package in LockFile.Read(source.Root, lockFile).Where(package => string.Equals(package.Id, RunesmithSdkPackage, StringComparison.OrdinalIgnoreCase)))
             {
                 if (!SemanticVersion.TryParse(package.Version, out var version) || version != minimum)
                     problems.Add($"{Path.GetFileName(project)} locks {RunesmithSdkPackage} {package.Version}; it must reference {minimum}, the minimum of runesmithApi.");
