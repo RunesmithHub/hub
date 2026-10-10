@@ -86,4 +86,5 @@ Commands that read a passphrase ask for it at the terminal, or read it from the 
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The third-party software the tool uses, and its licenses, are in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
