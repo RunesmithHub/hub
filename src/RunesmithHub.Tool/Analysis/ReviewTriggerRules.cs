@@ -56,6 +56,7 @@ internal static class ReviewTriggerRules
         When(facts.Tier != PluginTier.Unverified, ReviewTriggers.Tier);
         When(facts.Problems.Any(problem => problem.Code == ProblemCodes.LicenseCombination), ReviewTriggers.License);
         When(facts.Problems.Any(problem => problem.Code == ProblemCodes.ContractsContent), ReviewTriggers.ContractsContent);
+        When(facts.Problems.Any(problem => problem.Code == ProblemCodes.WebContent), ReviewTriggers.WebContent);
         return [.. ReviewTriggers.All.Where(triggers.Contains)];
     }
 }

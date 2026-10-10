@@ -101,6 +101,57 @@ public sealed class EndToEndTests(BuiltSamplePlugin sample) : IClassFixture<Buil
     }
 
     [Fact]
+    public async Task PacksTheWebFolderAndReviewsItsCode()
+    {
+        SkipUnlessBuilt();
+        var copy = sample.Folder("web");
+        CopyWithoutGit(sample.Repository, copy);
+        Directory.CreateDirectory(Path.Combine(copy, "web", "assets"));
+        File.WriteAllText(Path.Combine(copy, "web", "index.html"), "<!doctype html>");
+        File.WriteAllText(Path.Combine(copy, "web", "assets", "app.js"), "run();");
+
+        var package = await PackageAsync(copy, "web-package", archiveSource: false);
+
+        await using (var stream = File.OpenRead(package.PackageFile))
+        {
+            using var archive = PackageArchive.Open(stream);
+            Assert.Equal(["web/assets/app.js", "web/index.html"], archive.EntryNames.Where(PackageEntryRules.IsWebFile));
+        }
+
+        var report = (await AnalyseAsync(package.PackageFile, copy)).Report;
+        Assert.Contains("web-content", report.Triggers);
+        Assert.Equal(["web/assets/app.js"], report.Web!.Code);
+    }
+
+    [Fact]
+    public async Task RefusesAWebFolderWithOtherFileTypes()
+    {
+        SkipUnlessBuilt();
+        var copy = sample.Folder("web-type");
+        CopyWithoutGit(sample.Repository, copy);
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(copy, "web")).FullName, "run.sh"), "echo hi");
+
+        var exception = await Assert.ThrowsAsync<PackageException>(() => PackageAsync(copy, "web-type-package", archiveSource: false));
+
+        Assert.Contains("\"web/run.sh\" has a file type web pages may not contain.", exception.Problems);
+    }
+
+    [Fact]
+    public async Task ReadsNoWebFileThroughASymbolicLink()
+    {
+        SkipUnlessBuilt();
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating symbolic links needs extra rights on Windows.");
+        var copy = sample.Folder("web-link");
+        CopyWithoutGit(sample.Repository, copy);
+        var web = Directory.CreateDirectory(Path.Combine(copy, "web", "pages")).FullName;
+        File.CreateSymbolicLink(Path.Combine(web, "notes.txt"), Path.Combine(copy, "LICENSE"));
+
+        var exception = await Assert.ThrowsAsync<ToolException>(() => PackageAsync(copy, "web-link-package", archiveSource: false));
+
+        Assert.Contains("web/pages/notes.txt is a symbolic link", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ThePackageCommandWritesTheOutputsOfTheBuildJob()
     {
         SkipUnlessBuilt();

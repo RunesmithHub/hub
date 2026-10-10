@@ -75,6 +75,10 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
         if (sizeGrowth)
             problems.Add(AnalysisProblem.Review(ProblemCodes.SizeGrowth, $"The package grew from {previous!.Length} to {package.Length} bytes since {previous.Manifest.Version}."));
 
+        var (web, webProblem) = WebContentCheck.Check(package, previous);
+        if (webProblem is not null)
+            problems.Add(webProblem);
+
         var matches = request.Rules is { } rules ? HeuristicEngine.Run(rules, package) : null;
         if (matches is { Count: > 0 })
             problems.Add(AnalysisProblem.Review(ProblemCodes.Heuristic, "A review rule matched; an administrator will look at the details."));
@@ -109,6 +113,7 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
             Dependencies = dependencies,
             Vulnerabilities = advisories,
             BuildLogic = buildLogic,
+            Web = web,
             Heuristics = request.Rules is null ? HeuristicsState.Skipped : HeuristicsState.Ran,
             Sbom = provenance.Sbom is { } sbom ? new ProducedFile(Hashes.Sha256(sbom), sbom.Length) : null,
         };

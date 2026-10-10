@@ -90,4 +90,16 @@ public sealed class SummaryWriterTests : IDisposable
         Assert.Contains("Plugins: none.\n\nBundled NuGet packages: Markdig 0.40.0.\n", summary, StringComparison.Ordinal);
         Assert.Contains("This is the first version.", summary, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ShowsTheWebContent()
+    {
+        var previous = new TestPackage { ExtraFiles = [new("web/index.html", "<!doctype html>"u8.ToArray())] };
+        var current = previous with { Version = "1.0.1", ExtraFiles = [new("web/index.html", "<!doctype html>"u8.ToArray()), new("web/app.js", "run();"u8.ToArray())] };
+
+        var summary = await SummaryAsync(current, previous);
+
+        Assert.Contains("- Its web views run JavaScript or WebAssembly that is new or whose web files changed.\n", summary, StringComparison.Ordinal);
+        Assert.Contains("\n## Web content\n\n2 files under web/. JavaScript and WebAssembly:\n\n- `web/app.js`\n\nChanged since the previous version: `web/app.js`.\n", summary, StringComparison.Ordinal);
+    }
 }

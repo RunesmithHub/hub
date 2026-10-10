@@ -50,6 +50,9 @@ internal sealed record AnalysisReport
     /// <summary>Gets the custom build logic in the source; absent when the source was not given.</summary>
     public IReadOnlyList<BuildLogicFinding>? BuildLogic { get; init; }
 
+    /// <summary>Gets the files web views show; absent when neither this nor the previous version has any.</summary>
+    public WebContentAnalysis? Web { get; init; }
+
     public HeuristicsState Heuristics { get; init; }
 
     /// <summary>Gets the SBOM the analysis wrote from the verified package; the build's SBOM must be exactly this file.</summary>
@@ -105,3 +108,8 @@ internal sealed record DependencyChange(string Kind, string Id, string Change, s
 
 /// <summary>The plugin dependencies and NuGet packages of the version, and their changes.</summary>
 internal sealed record DependencyAnalysis(IReadOnlyList<PluginDependency> Plugins, IReadOnlyList<ReportedPackage> Packages, IReadOnlyList<DependencyChange> Changes);
+
+/// <summary>The files under <c>web/</c> that web views show.</summary>
+/// <param name="Code">The JavaScript and WebAssembly files.</param>
+/// <param name="Changed">The web files added, changed or removed since the previous version; null for a first version.</param>
+internal sealed record WebContentAnalysis(int Files, IReadOnlyList<string> Code, IReadOnlyList<string>? Changed);

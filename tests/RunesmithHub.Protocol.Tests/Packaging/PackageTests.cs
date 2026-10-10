@@ -228,6 +228,9 @@ public sealed class PackageTests : IDisposable
     [InlineData("lib/./evil.dll")]
     [InlineData("lib//evil.dll")]
     [InlineData("lib/évil.dll")]
+    [InlineData("web/../evil.js")]
+    [InlineData("web//app.js")]
+    [InlineData("web\\app.js")]
     public void RejectsUnsafeNames(string name)
     {
         Assert.Contains(Rejects(RawZipWith(name)).Problems, problem => problem.Contains("not a safe relative path", StringComparison.Ordinal));
@@ -262,7 +265,106 @@ public sealed class PackageTests : IDisposable
     {
         var names = Enumerable.Range(0, PackageLimits.MaxEntries).Select(i => $"lib/f{i}.txt").ToArray();
 
-        Assert.Contains("201 entries", Rejects(RawZipWith(names)).Message, StringComparison.Ordinal);
+        Assert.Contains("501 entries", Rejects(RawZipWith(names)).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AllowsAWebUiOfHundredsOfFiles()
+    {
+        var names = Enumerable.Range(0, 400).Select(i => $"web/assets/chunk{i}.js").ToArray();
+
+        using var archive = PackageArchive.Open(RawZipWith(names));
+
+        Assert.Equal(401, archive.EntryNames.Count);
+    }
+
+    [Theory]
+    [InlineData("web/index.html")]
+    [InlineData("web/legacy.htm")]
+    [InlineData("web/app.css")]
+    [InlineData("web/app.js")]
+    [InlineData("web/assets/app.mjs")]
+    [InlineData("web/assets/app.js.map")]
+    [InlineData("web/icons/logo.svg")]
+    [InlineData("web/images/a.png")]
+    [InlineData("web/images/a.JPG")]
+    [InlineData("web/images/a.jpeg")]
+    [InlineData("web/images/a.gif")]
+    [InlineData("web/images/a.webp")]
+    [InlineData("web/favicon.ico")]
+    [InlineData("web/fonts/a.woff")]
+    [InlineData("web/fonts/a.woff2")]
+    [InlineData("web/fonts/a.ttf")]
+    [InlineData("web/fonts/a.otf")]
+    [InlineData("web/engine.wasm")]
+    [InlineData("web/data.json")]
+    [InlineData("web/notes.txt")]
+    [InlineData("web/media/a.mp3")]
+    [InlineData("web/media/a.mp4")]
+    [InlineData("web/media/a.webm")]
+    public void AcceptsWebPageFilesUnderWeb(string name)
+    {
+        using var archive = PackageArchive.Open(RawZipWith(name));
+
+        Assert.Contains(name, archive.EntryNames);
+    }
+
+    [Theory]
+    [InlineData("web/run.sh")]
+    [InlineData("web/Lumen.Todo.dll")]
+    [InlineData("web/Lumen.Todo.pdb")]
+    [InlineData("web/README.md")]
+    [InlineData("web/docs.xml")]
+    [InlineData("web/Host.exe")]
+    [InlineData("web/page.php")]
+    [InlineData("web/archive.zip")]
+    [InlineData("web/LICENSE")]
+    [InlineData("web/.htaccess")]
+    public void RejectsOtherFileTypesUnderWeb(string name)
+    {
+        Assert.Contains(Rejects(RawZipWith(name)).Problems, problem => problem.Contains("file type web pages may not contain", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("app.js")]
+    [InlineData("lib/app.js")]
+    [InlineData("assets/app.wasm")]
+    [InlineData("lib/index.html")]
+    public void RejectsWebPageFilesOutsideWeb(string name)
+    {
+        Assert.Contains(Rejects(RawZipWith(name)).Problems, problem => problem.Contains("file type packages may not contain", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Web/app.js")]
+    [InlineData("WEB/index.html")]
+    [InlineData("Web/logo.png")]
+    public void RejectsTheWebFolderInAnotherCase(string name)
+    {
+        Assert.Contains(Rejects(RawZipWith(name)).Problems, problem => problem.Contains("spelled in lowercase", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("web/app.js", true)]
+    [InlineData("web/a/b.mjs", true)]
+    [InlineData("web/engine.wasm", true)]
+    [InlineData("web/app.js.map", false)]
+    [InlineData("web/index.html", false)]
+    [InlineData("lib/app.js", false)]
+    public void TellsWebCodeFromOtherFiles(string name, bool isCode)
+    {
+        Assert.Equal(isCode, PackageEntryRules.IsWebCode(name));
+    }
+
+    [Fact]
+    public void TheWriterPacksAWebFolder()
+    {
+        var package = PackageWriter.Write([.. ValidFiles(), new("web/index.html", "<!doctype html>"u8.ToArray()), new("web/app.js", "run();"u8.ToArray())]);
+
+        using var archive = PackageArchive.Open(new MemoryStream(package));
+        Assert.Contains("web/index.html", archive.EntryNames);
+        Assert.Contains("web/app.js", archive.EntryNames);
+        Assert.Throws<PackageException>(() => PackageWriter.Write([.. ValidFiles(), new("web/run.sh", "x"u8.ToArray())]));
     }
 
     [Fact]

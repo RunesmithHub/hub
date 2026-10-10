@@ -323,4 +323,59 @@ public sealed class PluginAnalyzerTests : IDisposable
         Assert.DoesNotContain("lumen-marker\"", published.Replace("\"lumen-marker\";", "", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("A review rule matched", published, StringComparison.Ordinal);
     }
+
+    private static readonly PackageFile WebPage = new("web/index.html", "<!doctype html><script src=\"app.js\"></script>"u8.ToArray());
+
+    private static readonly PackageFile WebScript = new("web/app.js", "runesmith.postMessage({ kind: 'ready' });"u8.ToArray());
+
+    [Fact]
+    public async Task ReviewsWebCodeInAFirstVersion()
+    {
+        var report = (await AnalyseAsync(new TestPackage { ExtraFiles = [WebPage, WebScript, new("web/engine.wasm", new byte[] { 0, 97, 115, 109 })] })).Report;
+
+        Assert.Equal(AnalysisOutcome.Review, report.Verdict);
+        Assert.Equal(["first-version", "web-content"], report.Triggers);
+        Assert.Equal(3, report.Web!.Files);
+        Assert.Equal(["web/app.js", "web/engine.wasm"], report.Web.Code);
+        Assert.Null(report.Web.Changed);
+        var problem = Assert.Single(report.Problems, problem => problem.Code == ProblemCodes.WebContent);
+        Assert.Equal(ProblemSeverity.Review, problem.Severity);
+        Assert.Equal("The web folder holds code web views run, in a first version: web/app.js, web/engine.wasm.", problem.Message);
+    }
+
+    [Fact]
+    public async Task ReviewsWebCodeWhenAnyWebFileChanges()
+    {
+        var previous = new TestPackage { ExtraFiles = [WebPage, WebScript] };
+
+        var unchanged = (await AnalyseAsync(previous with { Version = "1.0.1" }, previous)).Report;
+        var page = (await AnalyseAsync(previous with { Version = "1.0.1", ExtraFiles = [new("web/index.html", "<!doctype html><p>Hi</p>"u8.ToArray()), WebScript] }, previous)).Report;
+        var added = (await AnalyseAsync(previous with { Version = "1.0.1" }, new TestPackage())).Report;
+
+        Assert.Empty(unchanged.Triggers);
+        Assert.Empty(unchanged.Web!.Changed!);
+        Assert.DoesNotContain(unchanged.Problems, problem => problem.Code == ProblemCodes.WebContent);
+        Assert.Equal(["web-content"], page.Triggers);
+        Assert.Equal(["web/index.html"], page.Web!.Changed);
+        Assert.Contains(page.Problems, problem => problem.Message == "The web folder holds code web views run, and 1 web file changed since 1.0.0: web/app.js.");
+        Assert.Equal(["web-content"], added.Triggers);
+        Assert.Equal(["web/app.js", "web/index.html"], added.Web!.Changed);
+    }
+
+    [Fact]
+    public async Task DoesNotReviewWebPagesWithoutCode()
+    {
+        var current = new TestPackage { Version = "1.0.1", ExtraFiles = [new("web/index.html", "<!doctype html>"u8.ToArray()), new("web/style.css", "p { }"u8.ToArray())] };
+
+        var report = (await AnalyseAsync(current, new TestPackage())).Report;
+        var removed = (await AnalyseAsync(new TestPackage { Version = "1.0.1" }, new TestPackage { ExtraFiles = [WebPage, WebScript] })).Report;
+
+        Assert.Empty(report.Triggers);
+        Assert.Equal(2, report.Web!.Files);
+        Assert.Equal(["web/index.html", "web/style.css"], report.Web.Changed);
+        Assert.Empty(report.Web.Code);
+        Assert.Empty(removed.Triggers);
+        Assert.Equal(["web/app.js", "web/index.html"], removed.Web!.Changed);
+        Assert.Null((await AnalyseAsync(new TestPackage { Version = "1.0.1" }, new TestPackage())).Report.Web);
+    }
 }

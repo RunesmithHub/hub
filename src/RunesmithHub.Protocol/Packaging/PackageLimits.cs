@@ -5,7 +5,7 @@ namespace RunesmithHub.Protocol.Packaging;
 /// <summary>The size limits a package must stay within.</summary>
 public sealed record PackageLimits
 {
-    public const int MaxEntries = 200;
+    public const int MaxEntries = 500;
     public const int MaxCompressionRatio = 100;
 
     public static PackageLimits Default { get; } = new();

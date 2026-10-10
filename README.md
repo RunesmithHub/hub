@@ -32,6 +32,10 @@ the `.rsplugin` package, and checks the manifest, images, capabilities, the boun
 contracts' semantic version, bundled packages, known vulnerabilities, licenses and build logic. The exit code is 1 when the release would
 fail; a report that passes may still say a person will review the version, for example because it is the first one.
 
+The package also takes the `web` folder next to `plugin.json`, with the pages web views show. It may hold only the file types web pages
+use, such as `.html`, `.css`, `.js`, `.wasm`, images and fonts, and no symbolic links. A person reviews its JavaScript and WebAssembly in
+the first version, and again whenever a file in the folder changes.
+
 | Option | Does |
 | --- | --- |
 | `[path]` | The plugin's folder; the current folder by default |

@@ -17,6 +17,7 @@ namespace RunesmithHub.Tool.Build;
 internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver archiver, IReadOnlyList<string> dotnetRoots)
 {
     private const string LibFolder = "lib/";
+    private const string WebFolder = "web";
     private static readonly int[] PackagedIconSizes = [64, 128];
 
     /// <exception cref="ToolException">The build output can't be packaged; the message lists every problem.</exception>
@@ -56,6 +57,7 @@ internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver a
         files.AddRange(images.Where(image => image.Kind == "icon" && PackagedIconSizes.Contains(image.Width)).Select(image => new PackageFile($"icon/{image.Width}.png", image.Content)));
         AddFile(files, "LICENSE", source.Resolve("LICENSE"));
         AddFile(files, "README.md", source.Resolve("README.md"));
+        AddWebFiles(files, source);
         files.Add(new PackageFile(ThirdPartyNotices.FileName, Encoding.UTF8.GetBytes(ThirdPartyNotices.Create(source.Manifest.Name!, bundled))));
         files.Add(new PackageFile(CycloneDxSbom.FileName, sbom));
 
@@ -100,6 +102,35 @@ internal sealed class PackageAssembler(BundleVerifier verifier, SourceArchiver a
         var content = File.ReadAllBytes(sourceFile);
         files.Add(new PackageFile(packagePath, content));
         return Hashes.Sha256(content);
+    }
+
+    /// <summary>Adds every file of the <c>web</c> folder next to the manifest, which web views show, at its path under <c>web/</c>.</summary>
+    /// <exception cref="ToolException">The folder or something in it is a symbolic link.</exception>
+    private static void AddWebFiles(List<PackageFile> files, PluginSource source)
+    {
+        var web = source.Resolve(WebFolder);
+        if (!Directory.Exists(web))
+            return;
+        CheckoutPaths.EnsureNoLinks(source.Root, web);
+        foreach (var file in RegularFiles(source.Root, web))
+            AddFile(files, Path.GetRelativePath(source.Root, file).Replace(Path.DirectorySeparatorChar, '/'), file);
+    }
+
+    private static IEnumerable<string> RegularFiles(string root, string directory)
+    {
+        var options = new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = false };
+        foreach (var entry in Directory.EnumerateFileSystemEntries(directory, "*", options).Order(StringComparer.Ordinal))
+        {
+            if (new FileInfo(entry).LinkTarget is not null)
+                throw new ToolException($"{Path.GetRelativePath(root, entry).Replace(Path.DirectorySeparatorChar, '/')} is a symbolic link; the hub reads only regular files and folders.");
+            if (Directory.Exists(entry))
+            {
+                foreach (var file in RegularFiles(root, entry))
+                    yield return file;
+            }
+            else
+                yield return entry;
+        }
     }
 
     private static BundledAssembly Bundled(BundleItem item, string sha256) =>

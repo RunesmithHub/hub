@@ -6,7 +6,7 @@ namespace RunesmithHub.Tool.Analysis.Reporting;
 
 /// <summary>
 /// Writes <c>summary.md</c>, the readable report for the tracking issue and the version pull request: the verdict first, then capability,
-/// dependency, maintainer and build logic changes, the heuristic notice, and the comparison with the previous version.
+/// dependency, maintainer, build logic and web content changes, the heuristic notice, and the comparison with the previous version.
 /// </summary>
 internal static class SummaryWriter
 {
@@ -35,6 +35,7 @@ internal static class SummaryWriter
         WriteApi(text, report.Api);
         WriteDependencies(text, report);
         WriteMaintainersAndBuildLogic(text, report);
+        WriteWebContent(text, report);
         text.Append("\n## Review rules\n\n").Append(report.Heuristics switch
         {
             HeuristicsState.Skipped => "Review rules were not run.",
@@ -157,6 +158,24 @@ internal static class SummaryWriter
                 text.Append("- ").Append(finding.Kind).Append(' ').Append(finding.Name).Append(" in ").Append(finding.File).Append(" line ").Append(finding.Line).Append('\n');
         }
     }
+
+    private static void WriteWebContent(StringBuilder text, AnalysisReport report)
+    {
+        if (report.Web is not { } web)
+            return;
+        text.Append("\n## Web content\n\n");
+        text.Append(CultureInfo.InvariantCulture, $"{web.Files} {(web.Files == 1 ? "file" : "files")} under web/.");
+        text.Append(web.Code.Count == 0 ? " No JavaScript or WebAssembly.\n" : " JavaScript and WebAssembly:\n\n");
+        foreach (var file in web.Code.Take(SitesShown))
+            text.Append("- `").Append(file).Append("`\n");
+        if (web.Code.Count > SitesShown)
+            text.Append("- and ").Append(web.Code.Count - SitesShown).Append(" more\n");
+        if (web.Changed is { } changed)
+            text.Append('\n').Append(changed.Count == 0 ? "No web files changed since the previous version.\n" : $"Changed since the previous version: {Listed(changed)}.\n");
+    }
+
+    private static string Listed(IReadOnlyList<string> files) =>
+        string.Join(", ", files.Take(SitesShown).Select(file => $"`{file}`")) + (files.Count > SitesShown ? $" and {files.Count - SitesShown} more" : "");
 
     private static void WriteComparison(StringBuilder text, AnalysisReport report)
     {

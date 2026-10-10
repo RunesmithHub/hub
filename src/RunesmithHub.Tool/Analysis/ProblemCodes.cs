@@ -26,4 +26,5 @@ internal static class ProblemCodes
     public const string BuildLogic = "build-logic";
     public const string SizeGrowth = "size-growth";
     public const string Heuristic = "heuristic";
+    public const string WebContent = "web-content";
 }
