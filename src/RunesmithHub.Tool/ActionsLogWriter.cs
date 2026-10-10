@@ -86,7 +86,7 @@ internal sealed class ActionsLogWriter(TextWriter inner) : TextWriter
     public void Complete()
     {
         if (!_decided && _pending.Length > 0)
-            inner.WriteLine(Neutralize(_pending.ToString()));
+            inner.Write(Neutralize(_pending.ToString()) + "\n");
         _pending.Clear();
         _decided = false;
         inner.Flush();
