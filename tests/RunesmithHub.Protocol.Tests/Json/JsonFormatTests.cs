@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using RunesmithHub.Protocol.Index;
 using RunesmithHub.Protocol.Json;
+using RunesmithHub.Protocol.Manifests;
 using RunesmithHub.Protocol.Registry;
 using RunesmithHub.Protocol.Signing;
 using RunesmithHub.Protocol.Tests.Support;
@@ -190,6 +191,7 @@ public sealed class JsonFormatTests
             Name = version.Name,
             Categories = version.Categories,
             Keywords = version.Keywords,
+            LanguagePack = DutchPack,
             TrackingIssue = 12,
             BuildRun = 99,
             AnalysisDigest = new string('e', 64),
@@ -202,7 +204,78 @@ public sealed class JsonFormatTests
         Assert.EndsWith("\"analysisDigest\": \"" + new string('e', 64) + "\"\n}\n", registryJson, StringComparison.Ordinal);
         Assert.Equal(12, read.TrackingIssue);
         Assert.Equal(typeof(VersionRecord), indexRecord.GetType());
+        Assert.Equivalent(DutchPack, indexRecord.LanguagePack, strict: true);
         Assert.DoesNotContain("trackingIssue", Encoding.UTF8.GetString(IndexJson.Serialize(Records.Plugin("ab.cd", "A", PluginTier.Official, [indexRecord]))), StringComparison.Ordinal);
+    }
+
+    private static readonly LanguagePackSummary DutchPack = new()
+    {
+        Language = "nl",
+        Name = "Nederlands",
+        EnglishName = "Dutch",
+        Targets = ["runesmith", "runesmith.git"],
+    };
+
+    [Fact]
+    public void CarriesTheLanguagesAndLanguagePackOfAVersionAndLeavesThemOutOfOtherVersions()
+    {
+        var localized = Records.Version("1.0.1") with { Languages = ["en", "nl"] };
+        var pack = Records.Version("1.0.2") with { LanguagePack = DutchPack };
+
+        var json = Encoding.UTF8.GetString(IndexJson.Serialize(Records.Plugin("ab.cd", "A", PluginTier.Official, [pack, localized, Records.Version("1.0.0")])));
+        var read = IndexJson.Deserialize<PluginRecord>(Encoding.UTF8.GetBytes(json));
+
+        Assert.Contains("\"languagePack\":{\"language\":\"nl\",\"name\":\"Nederlands\",\"englishName\":\"Dutch\",\"targets\":[\"runesmith\",\"runesmith.git\"]}", json, StringComparison.Ordinal);
+        Assert.Contains("\"languages\":[\"en\",\"nl\"]", json, StringComparison.Ordinal);
+        Assert.Equal(1, json.Split("\"languages\"").Length - 1);
+        Assert.Equal(1, json.Split("\"languagePack\"").Length - 1);
+        Assert.Equivalent(DutchPack, read.Versions[0].LanguagePack, strict: true);
+        Assert.Equal(["en", "nl"], read.Versions[1].Languages);
+        Assert.Equal((null, null), (read.Versions[2].Languages, read.Versions[2].LanguagePack));
+    }
+
+    private static string Packaged(string localization)
+    {
+        var json = $$"""
+            {
+              "schemaVersion": 1, "id": "lumen.todo", "name": "Lumen Todo", "version": "1.0.0", "summary": "Todos.", "authors": ["Lumen"],
+              "license": "MIT", "repository": "https://github.com/lumen/todo", "runesmithApi": "^0.1.0",
+              "projects": { "contracts": "A.Contracts.csproj", "implementation": "A.csproj" }, "icon": "icon.png", "categories": ["Other"]{{localization}}
+            }
+            """;
+        var assemblies = new PackagedAssemblies
+        {
+            Contracts = new AssemblyFile { File = "A.Contracts.dll", Sha256 = new string('a', 64) },
+            Implementation = new AssemblyFile { File = "A.dll", Sha256 = new string('b', 64) },
+        };
+        var manifest = PackagedManifest.Create(
+            ManifestValidator.Validate(Encoding.UTF8.GetBytes(json)).Manifest!, assemblies, new PackageBuild { Commit = new string('c', 40), Run = "local", Sdk = "10.0.400" });
+        return Encoding.UTF8.GetString(IndexJson.Serialize(manifest));
+    }
+
+    [Fact]
+    public void WritesTheLanguagesAndLanguagePackIntoThePackagedManifestOnlyWhenTheManifestHasThem()
+    {
+        var localized = Packaged(", \"languages\": [\"en\", \"nl\"]");
+        var pack = Packaged(", \"languagePack\": { \"language\": \"nl\", \"name\": \"Nederlands\", \"englishName\": \"Dutch\" }");
+
+        Assert.DoesNotContain("\"language", Packaged(""), StringComparison.Ordinal);
+        Assert.Contains("\"languages\":[\"en\",\"nl\"],\"assemblies\"", localized, StringComparison.Ordinal);
+        Assert.Contains("\"languagePack\":{\"language\":\"nl\",\"name\":\"Nederlands\",\"englishName\":\"Dutch\"},\"assemblies\"", pack, StringComparison.Ordinal);
+        Assert.Equal(["en", "nl"], IndexJson.Deserialize<PackagedManifest>(Encoding.UTF8.GetBytes(localized)).Languages);
+        Assert.Equal("Nederlands", IndexJson.Deserialize<PackagedManifest>(Encoding.UTF8.GetBytes(pack)).LanguagePack!.Name);
+    }
+
+    [Fact]
+    public void ReadsALanguagePackWithoutTargetsAsTranslatingNothing()
+    {
+        var json = Encoding.UTF8.GetString(IndexJson.Serialize(Records.Plugin("ab.cd", "A", PluginTier.Official, [Records.Version("1.0.0") with { LanguagePack = DutchPack }])))
+            .Replace(",\"targets\":[\"runesmith\",\"runesmith.git\"]", "", StringComparison.Ordinal);
+
+        var pack = IndexJson.Deserialize<PluginRecord>(Encoding.UTF8.GetBytes(json)).Versions[0].LanguagePack!;
+
+        Assert.Equal("Dutch", pack.EnglishName);
+        Assert.Empty(pack.Targets);
     }
 
     [Fact]

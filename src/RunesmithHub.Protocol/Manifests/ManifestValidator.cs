@@ -12,6 +12,7 @@ public static partial class ManifestValidator
     private const int MaxDependencies = 32;
     private const int MaxGalleryImages = 6;
     private const int MaxKeywords = 10;
+    private const int MaxLanguages = 100;
 
     /// <summary>Reads and checks a manifest file's bytes.</summary>
     public static ManifestValidationResult Validate(ReadOnlySpan<byte> json, ManifestValidationOptions? options = null)
@@ -68,6 +69,7 @@ public static partial class ManifestValidator
             CheckCategories(manifest.Categories);
             CheckKeywords(manifest.Keywords);
             CheckDeprecation(manifest.Deprecated, manifest.Id);
+            CheckLocalization(manifest);
         }
 
         private void CheckIdentity(DeveloperManifest manifest)
@@ -108,11 +110,7 @@ public static partial class ManifestValidator
                 Length("name", name, 2, 40);
 
             if (Required("summary", manifest.Summary) is { } summary)
-            {
-                Length("summary", summary, 1, 120);
-                if (summary.Contains('\n', StringComparison.Ordinal) || summary.Contains('\r', StringComparison.Ordinal))
-                    Add("summary", "must be a single line.");
-            }
+                Line("summary", summary, 1, 120);
 
             if (manifest.Authors is null)
                 Add("authors", "is required.");
@@ -306,6 +304,58 @@ public static partial class ManifestValidator
                 Add("deprecated.replacement", "must be the ID of another plugin.");
         }
 
+        private void CheckLocalization(DeveloperManifest manifest)
+        {
+            if (manifest.LanguagePack is { } pack)
+            {
+                CheckLanguagePack(pack, manifest);
+                return;
+            }
+
+            if (manifest.Languages is not { } languages)
+                return;
+            if (languages.Count > MaxLanguages)
+                Add("languages", $"can have at most {MaxLanguages} items.");
+            var seen = new HashSet<string>(LanguageTags.Comparer);
+            for (var i = 0; i < languages.Count; i++)
+            {
+                var path = Index("languages", i);
+                if (LanguageTag(path, languages[i]) && !seen.Add(languages[i]))
+                    Add(path, $"lists {languages[i]} again.");
+            }
+
+            if (!languages.Contains(LanguageTags.English, LanguageTags.Comparer))
+                Add("languages", "must include en, the English source the other languages translate.");
+        }
+
+        private void CheckLanguagePack(ManifestLanguagePack pack, DeveloperManifest manifest)
+        {
+            if (Required("languagePack.language", pack.Language) is { } language)
+                LanguageTag("languagePack.language", language);
+            if (Required("languagePack.name", pack.Name) is { } name)
+                Line("languagePack.name", name, 1, 40);
+            if (Required("languagePack.englishName", pack.EnglishName) is { } englishName)
+                Line("languagePack.englishName", englishName, 1, 40);
+
+            if (manifest.Languages is not null)
+                Add("languages", "is not allowed in a language pack; languagePack.language is the one language it carries.");
+            if (manifest.Capabilities is { Count: > 0 })
+                Add("capabilities", "must be empty in a language pack, which only carries translations.");
+            if (manifest.Dependencies is { Count: > 0 })
+                Add("dependencies", "must be empty in a language pack, which only carries translations.");
+        }
+
+        private bool LanguageTag(string path, string tag)
+        {
+            if (LanguageTags.Canonicalize(tag) is not { } canonical)
+                Add(path, "must be a BCP 47 language tag such as en, nl, nl-BE or pt-BR.");
+            else if (!string.Equals(tag, canonical, StringComparison.Ordinal))
+                Add(path, $"must be written {canonical}.");
+            else
+                return true;
+            return false;
+        }
+
         private string? Required(string path, string? value)
         {
             if (value is null)
@@ -317,6 +367,13 @@ public static partial class ManifestValidator
         {
             if (value.Length < min || value.Length > max)
                 Add(path, min == max ? $"must be {min} characters." : $"must be {min} to {max} characters.");
+        }
+
+        private void Line(string path, string value, int min, int max)
+        {
+            Length(path, value, min, max);
+            if (value.Contains('\n', StringComparison.Ordinal) || value.Contains('\r', StringComparison.Ordinal))
+                Add(path, "must be a single line.");
         }
 
         private void Count(string path, int count, int min, int max)

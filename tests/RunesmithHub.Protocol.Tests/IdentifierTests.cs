@@ -72,6 +72,49 @@ public sealed class IdentifierTests
         Assert.Equal(shared, HostAssemblies.IsHostShared(name));
     }
 
+    [Theory]
+    [InlineData("en", "en")]
+    [InlineData("NL", "nl")]
+    [InlineData("fil", "fil")]
+    [InlineData("nl-be", "nl-BE")]
+    [InlineData("PT-br", "pt-BR")]
+    [InlineData("es-419", "es-419")]
+    [InlineData("sr-latn", "sr-Latn")]
+    [InlineData("ZH-HANT-tw", "zh-Hant-TW")]
+    [InlineData("ca-Valencia", "ca-valencia")]
+    [InlineData("de-CH-1996", "de-CH-1996")]
+    [InlineData("sl-rozaj-biske", "sl-rozaj-biske")]
+    public void WritesLanguageTagsInCanonicalCase(string tag, string canonical)
+    {
+        Assert.True(LanguageTags.IsValid(tag));
+        Assert.Equal(canonical, LanguageTags.Canonicalize(tag));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("e")]
+    [InlineData("english")]
+    [InlineData("1en")]
+    [InlineData("en_US")]
+    [InlineData("en-")]
+    [InlineData("-en")]
+    [InlineData("en--US")]
+    [InlineData("en-12")]
+    [InlineData("en-US-Latn")]
+    [InlineData("en-abc")]
+    [InlineData("en-x-private")]
+    [InlineData("en-u-ca-gregory")]
+    [InlineData("nl-é")]
+    [InlineData("de-CH-1901-1996-1996-1996-1996-1996-1996")]
+    public void RejectsAnythingButALanguageWithOptionalScriptRegionAndVariants(string text)
+    {
+        Assert.False(LanguageTags.IsValid(text));
+        Assert.Null(LanguageTags.Canonicalize(text));
+    }
+
+    [Fact]
+    public void ComparesLanguageTagsWithoutRegardToCase() => Assert.True(LanguageTags.Comparer.Equals("pt-BR", "PT-br"));
+
     [Fact]
     public void ListsTheCapabilitiesAndCategories()
     {

@@ -57,4 +57,10 @@ public sealed record DeveloperManifest
     public IReadOnlyList<string>? Keywords { get; init; }
 
     public ManifestDeprecation? Deprecated { get; init; }
+
+    /// <summary>Gets the BCP 47 tags of the languages of the plugin's own translations, English included; null when it is not localized.</summary>
+    public IReadOnlyList<string>? Languages { get; init; }
+
+    /// <summary>Gets the language the plugin adds as a language pack; null when it is not one.</summary>
+    public ManifestLanguagePack? LanguagePack { get; init; }
 }

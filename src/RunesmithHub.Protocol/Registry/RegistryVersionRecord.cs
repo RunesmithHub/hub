@@ -54,5 +54,7 @@ public sealed record RegistryVersionRecord : VersionRecord
         License = License,
         ReportUrl = ReportUrl,
         YankReason = YankReason,
+        Languages = Languages,
+        LanguagePack = LanguagePack,
     };
 }

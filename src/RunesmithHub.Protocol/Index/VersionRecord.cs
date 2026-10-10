@@ -75,6 +75,12 @@ public record VersionRecord
     /// <summary>Gets the developer's reason for yanking the version, while it is yanked.</summary>
     public string? YankReason { get; init; }
 
+    /// <summary>Gets the BCP 47 tags of the languages of the plugin's own translations, English included; null when it is not localized.</summary>
+    public IReadOnlyList<string>? Languages { get; init; }
+
+    /// <summary>Gets the language the version adds as a language pack and what it translates; null when it is not a language pack.</summary>
+    public LanguagePackSummary? LanguagePack { get; init; }
+
     /// <summary>Gets whether the version supports a platform.</summary>
     public bool SupportsPlatform(string platform) => Platforms.Count == 0 || Platforms.Contains(platform, StringComparer.Ordinal);
 }

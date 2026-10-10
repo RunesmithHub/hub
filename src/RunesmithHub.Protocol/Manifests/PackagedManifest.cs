@@ -47,6 +47,12 @@ public sealed record PackagedManifest
 
     public Deprecation? Deprecated { get; init; }
 
+    /// <summary>Gets the BCP 47 tags of the languages of the plugin's own translations, English included; null when it is not localized.</summary>
+    public IReadOnlyList<string>? Languages { get; init; }
+
+    /// <summary>Gets the language the plugin adds as a language pack; null when it is not one.</summary>
+    public DeclaredLanguagePack? LanguagePack { get; init; }
+
     public required PackagedAssemblies Assemblies { get; init; }
 
     public required PackageBuild Build { get; init; }
@@ -79,6 +85,10 @@ public sealed record PackagedManifest
             Categories = manifest.Categories!,
             Keywords = manifest.Keywords ?? [],
             Deprecated = manifest.Deprecated is { } deprecated ? new Deprecation { Reason = deprecated.Reason!, Replacement = deprecated.Replacement } : null,
+            Languages = manifest.Languages,
+            LanguagePack = manifest.LanguagePack is { } pack
+                ? new DeclaredLanguagePack { Language = pack.Language!, Name = pack.Name!, EnglishName = pack.EnglishName! }
+                : null,
             Assemblies = assemblies,
             Build = build,
         };

@@ -27,7 +27,26 @@ public sealed class ManifestValidatorTests
           "gallery": [{ "path": "assets/shot.webp", "caption": "The TODO list" }],
           "categories": ["Productivity"],
           "keywords": ["todo", "issues"],
-          "deprecated": { "reason": "Moved to a new plugin.", "replacement": "lumen.tasks" }
+          "deprecated": { "reason": "Moved to a new plugin.", "replacement": "lumen.tasks" },
+          "languages": ["en", "nl", "pt-BR"]
+        }
+        """;
+
+    private const string LanguagePackManifest = """
+        {
+          "schemaVersion": 1,
+          "id": "lumen.dutch",
+          "name": "Lumen Dutch",
+          "version": "1.0.0",
+          "summary": "Runesmith and Lumen Todo in Dutch.",
+          "authors": ["Lumen Labs"],
+          "license": "MIT",
+          "repository": "https://github.com/lumen-labs/lumen-dutch",
+          "runesmithApi": "^0.1.0",
+          "projects": { "contracts": "src/Lumen.Dutch.Contracts/Lumen.Dutch.Contracts.csproj", "implementation": "src/Lumen.Dutch/Lumen.Dutch.csproj" },
+          "icon": "icon.png",
+          "categories": ["Other"],
+          "languagePack": { "language": "nl", "name": "Nederlands", "englishName": "Dutch" }
         }
         """;
 
@@ -39,6 +58,62 @@ public sealed class ManifestValidatorTests
         Assert.Empty(result.Problems);
         Assert.True(result.IsValid);
         Assert.Equal("lumen.todo", result.Manifest.Id);
+        Assert.Equal(["en", "nl", "pt-BR"], result.Manifest.Languages);
+    }
+
+    [Fact]
+    public void AcceptsALanguagePack()
+    {
+        var json = LanguagePackManifest.Replace("\"categories\": [\"Other\"],", "\"categories\": [\"Other\"], \"capabilities\": [], \"dependencies\": [],", StringComparison.Ordinal);
+
+        var result = ManifestValidator.Validate(Encoding.UTF8.GetBytes(json));
+
+        Assert.Empty(result.Problems);
+        Assert.Equal(new ManifestLanguagePack { Language = "nl", Name = "Nederlands", EnglishName = "Dutch" }, result.Manifest!.LanguagePack);
+        Assert.Null(result.Manifest.Languages);
+    }
+
+    public static TheoryData<string, string, string> InvalidLanguagePacks => new()
+    {
+        { "\"language\": \"nl\"", "\"language\": \"NL\"", "languagePack.language" },
+        { "\"language\": \"nl\"", "\"language\": \"Dutch\"", "languagePack.language" },
+        { "\"language\": \"nl\", ", "", "languagePack.language" },
+        { "\"name\": \"Nederlands\"", "\"name\": \"\"", "languagePack.name" },
+        { "\"name\": \"Nederlands\"", "\"name\": \"" + new string('n', 41) + "\"", "languagePack.name" },
+        { "\"englishName\": \"Dutch\"", "\"englishName\": \"Dutch\\nFlemish\"", "languagePack.englishName" },
+        { ", \"englishName\": \"Dutch\"", "", "languagePack.englishName" },
+        { "\"categories\": [\"Other\"],", "\"categories\": [\"Other\"], \"languages\": [\"en\", \"nl\"],", "languages" },
+        { "\"categories\": [\"Other\"],", "\"categories\": [\"Other\"], \"capabilities\": [{ \"id\": \"process\", \"reason\": \"Runs tools.\" }],", "capabilities" },
+        { "\"categories\": [\"Other\"],", "\"categories\": [\"Other\"], \"dependencies\": [{ \"id\": \"runesmith.git\", \"range\": \"^0.1.0\" }],", "dependencies" },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidLanguagePacks))]
+    public void ReportsAnInvalidLanguagePackAtItsPath(string original, string replacement, string path)
+    {
+        Assert.Contains(original, LanguagePackManifest, StringComparison.Ordinal);
+        var json = LanguagePackManifest.Replace(original, replacement, StringComparison.Ordinal);
+
+        var result = ManifestValidator.Validate(Encoding.UTF8.GetBytes(json));
+
+        Assert.Contains(result.Problems, problem => problem.Path == path);
+    }
+
+    [Fact]
+    public void ExplainsWhatIsWrongWithTheLanguages()
+    {
+        var manifest = ManifestValidator.Validate(Encoding.UTF8.GetBytes(ValidManifest)).Manifest! with { Languages = ["nl", "NL", "nl", "nl_BE"] };
+
+        var problems = ManifestValidator.Validate(manifest).Select(problem => problem.ToString());
+
+        Assert.Equal(
+            [
+                "languages[1]: must be written nl.",
+                "languages[2]: lists nl again.",
+                "languages[3]: must be a BCP 47 language tag such as en, nl, nl-BE or pt-BR.",
+                "languages: must include en, the English source the other languages translate.",
+            ],
+            problems);
     }
 
     [Fact]
@@ -169,6 +244,12 @@ public sealed class ManifestValidatorTests
         { "\"keywords\": [\"todo\", \"issues\"]", "\"keywords\": [\"todo\", \"todo\"]", "keywords[1]" },
         { "\"replacement\": \"lumen.tasks\"", "\"replacement\": \"lumen.todo\"", "deprecated.replacement" },
         { "\"reason\": \"Moved to a new plugin.\"", "\"reason\": \"\"", "deprecated.reason" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": [\"nl\", \"pt-BR\"]", "languages" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": []", "languages" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": [\"en\", \"nl\", \"pt-br\"]", "languages[2]" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": [\"en\", \"nl\", \"nl\"]", "languages[2]" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": [\"en\", \"Dutch\"]", "languages[1]" },
+        { "\"languages\": [\"en\", \"nl\", \"pt-BR\"]", "\"languages\": [\"en\", \"nl\"], \"languagePack\": { \"language\": \"de\", \"name\": \"Deutsch\", \"englishName\": \"German\" }", "languages" },
     };
 
     [Theory]
@@ -184,13 +265,14 @@ public sealed class ManifestValidatorTests
     }
 
     [Fact]
-    public void LimitsTheNumberOfDependenciesGalleryImagesAndKeywords()
+    public void LimitsTheNumberOfDependenciesGalleryImagesKeywordsAndLanguages()
     {
         var manifest = ManifestValidator.Validate(Encoding.UTF8.GetBytes(ValidManifest)).Manifest! with
         {
             Dependencies = [.. Enumerable.Range(0, 33).Select(i => new ManifestDependency { Id = $"dep.plugin{i}", Range = "^1.0.0" })],
             Gallery = [.. Enumerable.Range(0, 7).Select(i => new ManifestGalleryImage { Path = $"shot{i}.png", Caption = "Shot" })],
             Keywords = [.. Enumerable.Range(0, 11).Select(i => $"word{i}")],
+            Languages = ["en", .. Enumerable.Range(0, 100).Select(i => $"en-{i:D3}")],
         };
 
         var paths = ManifestValidator.Validate(manifest).Select(problem => problem.Path).ToList();
@@ -198,6 +280,7 @@ public sealed class ManifestValidatorTests
         Assert.Contains("dependencies", paths);
         Assert.Contains("gallery", paths);
         Assert.Contains("keywords", paths);
+        Assert.Contains("languages", paths);
     }
 
     [Fact]

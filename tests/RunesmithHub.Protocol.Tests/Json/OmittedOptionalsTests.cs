@@ -9,16 +9,18 @@ public sealed class OmittedOptionalsTests
 {
     private const string Sha = "0000000000000000000000000000000000000000000000000000000000000000";
 
+    private const string MinimalPackagedManifest =
+        "{\"schemaVersion\":1,\"id\":\"lumen.todo\",\"name\":\"Lumen Todo\",\"version\":\"1.0.0\",\"summary\":\"Todos.\",\"authors\":[\"Lumen\"]," +
+        "\"license\":\"MIT\",\"repository\":\"https://github.com/lumen/todo\",\"runesmithApi\":\">=0.1.0 <0.2.0\",\"categories\":[\"Productivity\"]," +
+        "\"assemblies\":{\"contracts\":{\"file\":\"A.Contracts.dll\",\"sha256\":\"" + Sha + "\"},\"implementation\":{\"file\":\"A.dll\",\"sha256\":\"" + Sha + "\"}}," +
+        "\"build\":{\"commit\":\"" + Sha40 + "\",\"run\":\"local\",\"sdk\":\"10.0.400\"}}";
+
+    private const string Sha40 = "0000000000000000000000000000000000000000";
+
     [Fact]
     public void APackagedManifestWithoutOptionalListsReadsThemAsEmpty()
     {
-        var json =
-            "{\"schemaVersion\":1,\"id\":\"lumen.todo\",\"name\":\"Lumen Todo\",\"version\":\"1.0.0\",\"summary\":\"Todos.\",\"authors\":[\"Lumen\"]," +
-            "\"license\":\"MIT\",\"repository\":\"https://github.com/lumen/todo\",\"runesmithApi\":\">=0.1.0 <0.2.0\",\"categories\":[\"Productivity\"]," +
-            "\"assemblies\":{\"contracts\":{\"file\":\"A.Contracts.dll\",\"sha256\":\"" + Sha + "\"},\"implementation\":{\"file\":\"A.dll\",\"sha256\":\"" + Sha + "\"}}," +
-            "\"build\":{\"commit\":\"" + Sha[..40] + "\",\"run\":\"local\",\"sdk\":\"10.0.400\"}}";
-
-        var manifest = IndexJson.Deserialize<PackagedManifest>(Encoding.UTF8.GetBytes(json));
+        var manifest = IndexJson.Deserialize<PackagedManifest>(Encoding.UTF8.GetBytes(MinimalPackagedManifest));
 
         Assert.NotNull(manifest.Dependencies);
         Assert.Empty(manifest.Dependencies);
@@ -32,6 +34,15 @@ public sealed class OmittedOptionalsTests
         Assert.Empty(manifest.Keywords);
         Assert.NotNull(manifest.Assemblies.Bundled);
         Assert.Empty(manifest.Assemblies.Bundled);
+    }
+
+    [Fact]
+    public void APackagedManifestWithoutLanguagesIsNeitherLocalizedNorALanguagePack()
+    {
+        var manifest = IndexJson.Deserialize<PackagedManifest>(Encoding.UTF8.GetBytes(MinimalPackagedManifest));
+
+        Assert.Null(manifest.Languages);
+        Assert.Null(manifest.LanguagePack);
     }
 
     [Fact]
