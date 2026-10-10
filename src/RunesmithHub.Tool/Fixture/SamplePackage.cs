@@ -43,6 +43,8 @@ internal static class SamplePackage
         Categories = plugin.Categories,
         Keywords = plugin.Keywords.Count == 0 ? null : plugin.Keywords,
         Deprecated = plugin.Deprecated is { } deprecated ? new ManifestDeprecation { Reason = deprecated.Reason, Replacement = deprecated.Replacement } : null,
+        Languages = plugin.Languages,
+        LanguagePack = plugin.LanguagePack is { } pack ? new ManifestLanguagePack { Language = pack.Language, Name = pack.Name, EnglishName = pack.EnglishName } : null,
     };
 
     /// <summary>Builds the package: the packaged manifest, both assemblies, the icons, the license and the readme.</summary>

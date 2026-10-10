@@ -26,7 +26,7 @@ public sealed class FixtureTests : IDisposable
     {
         var (exitCode, output, error) = await _tool.RunAsync(["dev", "fixture", Index, "--base-url", BaseUrl, .. extra]);
         Assert.True(exitCode == 0, error);
-        Assert.Contains("13 plugins", output, StringComparison.Ordinal);
+        Assert.Contains("14 plugins", output, StringComparison.Ordinal);
     }
 
     private async Task<IndexUpdateResult> UpdateAsync(TimeProvider? clock = null)
@@ -56,7 +56,7 @@ public sealed class FixtureTests : IDisposable
 
         var view = await ViewAsync();
 
-        Assert.Equal(13, view.Plugins.Count);
+        Assert.Equal(14, view.Plugins.Count);
         Assert.Equal(11, view.Publishers.Publishers.Count);
         Assert.Equal(3, view.Moderation.Entries.Count);
         Assert.Equal(Categories.Default, view.Policy.Categories);
@@ -74,8 +74,8 @@ public sealed class FixtureTests : IDisposable
         Assert.True(File.Exists(Path.Combine(Index, "stats.json")));
         Assert.Single(Directory.GetFiles(Path.Combine(Index, "snapshot")));
         Assert.Single(Directory.GetFiles(Path.Combine(Index, "moderation")));
-        Assert.Equal(13, Directory.GetFiles(Path.Combine(Index, "plugins")).Length);
-        Assert.Equal(["runesmith.csharp", "runesmith.git", "runesmith.github"], Ids(view, PluginTier.Official));
+        Assert.Equal(14, Directory.GetFiles(Path.Combine(Index, "plugins")).Length);
+        Assert.Equal(["runesmith.csharp", "runesmith.dutch", "runesmith.git", "runesmith.github"], Ids(view, PluginTier.Official));
         Assert.Equal(["ember.themes", "harbor.issues", "northwind.charts", "tide.formatter"], Ids(view, PluginTier.Verified));
         Assert.Equal(["atlas.rest", "cobalt.docker", "copper.snippets", "fastcode.helper", "lumen.todo", "pixel.icons"], Ids(view, PluginTier.Unverified));
         Assert.All(view.Plugins.Values.SelectMany(p => p.Versions), v => Assert.Equal(">=0.1.0 <0.2.0", v.RunesmithApi.ToString()));
@@ -85,6 +85,24 @@ public sealed class FixtureTests : IDisposable
     }
 
     private static IEnumerable<string> Ids(IndexView view, PluginTier tier) => view.Plugins.Values.Where(p => p.Tier == tier).Select(p => p.Id).Order();
+
+    [Fact]
+    public async Task CarriesALocalizedPluginAndALanguagePack()
+    {
+        await WriteFixtureAsync();
+
+        var view = await ViewAsync();
+
+        Assert.All(view.Plugins["runesmith.git"].Versions, version => Assert.Equal(["en", "nl", "de"], version.Languages));
+        Assert.All(view.Plugins.Values.Where(plugin => plugin.Id != "runesmith.git").SelectMany(plugin => plugin.Versions), version => Assert.Null(version.Languages));
+        var pack = Assert.Single(view.Plugins["runesmith.dutch"].Versions);
+        Assert.Equal(("nl", "Nederlands", "Dutch"), (pack.LanguagePack!.Language, pack.LanguagePack.Name, pack.LanguagePack.EnglishName));
+        Assert.Equal(["runesmith", "runesmith.github"], pack.LanguagePack.Targets);
+        Assert.Empty(pack.Capabilities.Declared);
+        await using var stream = File.OpenRead(LocalPath(pack.Package!.Urls[0]));
+        using var archive = PackageArchive.Open(stream);
+        Assert.Equal("Dutch", archive.ReadManifest().LanguagePack!.EnglishName);
+    }
 
     [Fact]
     public async Task CarriesTheStatesOfTheDesignExamples()
@@ -161,7 +179,7 @@ public sealed class FixtureTests : IDisposable
             }
         }
 
-        Assert.Equal(22, checkedPackages);
+        Assert.Equal(23, checkedPackages);
         Assert.Null(view.Plugins["harbor.issues"].FindVersion(SemanticVersion.Parse("1.3.1"))!.Package);
         Assert.Null(view.Plugins["harbor.issues"].FindVersion(SemanticVersion.Parse("1.4.0"))!.Package);
     }

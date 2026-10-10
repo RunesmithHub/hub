@@ -14,7 +14,7 @@ internal sealed record SampleVersion(string Version, VersionState State, ReviewS
 /// <summary>A sample capability with the reason users see.</summary>
 internal sealed record SampleCapability(string Id, string Reason);
 
-/// <summary>A sample plugin; every version has the same dependencies and capabilities.</summary>
+/// <summary>A sample plugin; every version has the same dependencies, capabilities and languages.</summary>
 internal sealed record SamplePlugin(
     string Id, string Name, string AssemblyRoot, PluginTier Tier, string Color, IReadOnlyList<string> Categories, string Summary, string License,
     IReadOnlyList<SampleVersion> Versions)
@@ -30,6 +30,10 @@ internal sealed record SamplePlugin(
     public IReadOnlyList<string> Keywords { get; init; } = [];
 
     public Deprecation? Deprecated { get; init; }
+
+    public IReadOnlyList<string>? Languages { get; init; }
+
+    public LanguagePackSummary? LanguagePack { get; init; }
 
     /// <summary>Gets the repository URL and the plugin's folder in it.</summary>
     public (string Url, string Path) Repository { get; init; }
@@ -87,6 +91,7 @@ internal static class SampleData
         {
             Capabilities = [new("process", "Runs git for operations the library does not cover.")],
             Keywords = ["git", "vcs"],
+            Languages = ["en", "nl", "de"],
             Repository = Runesmith("Runesmith.Git"),
             Installs = 51930,
         },
@@ -99,6 +104,15 @@ internal static class SampleData
             Dependencies = [("runesmith.git", "^0.3.0")],
             Repository = Runesmith("Runesmith.GitHub"),
             Installs = 30110,
+        },
+        new("runesmith.dutch", "Dutch Language Pack", "Runesmith.Dutch", PluginTier.Official, "#5b4fe0", ["Other"],
+            "Runesmith and its GitHub plugin in Dutch.", "Apache-2.0",
+            [Reviewed("0.1.0", 10, 3)])
+        {
+            Keywords = ["dutch", "nederlands"],
+            LanguagePack = new LanguagePackSummary { Language = "nl", Name = "Nederlands", EnglishName = "Dutch", Targets = ["runesmith", "runesmith.github"] },
+            Repository = Runesmith("Runesmith.Dutch"),
+            Installs = 6120,
         },
         new("harbor.issues", "Harbor Issues", "Harbor.Issues", PluginTier.Verified, "#0f766e", ["Productivity", "Version control"],
             "Links commits, branches and TODOs to issues in GitHub, Forgejo and Gitea.", "Apache-2.0",

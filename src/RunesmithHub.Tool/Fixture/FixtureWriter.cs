@@ -187,6 +187,8 @@ internal sealed class FixtureWriter(TimeProvider time)
             License = plugin.License,
             ReportUrl = HubLocations.IssueUrl(TrackingIssue(plugin, version)),
             YankReason = version.YankReason,
+            Languages = plugin.Languages,
+            LanguagePack = plugin.LanguagePack,
         };
     }
 
