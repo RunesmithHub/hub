@@ -58,7 +58,7 @@ internal static class Samples
     /// <summary>Writes the <c>analysis.json</c> of a build output written by <see cref="WriteBuildOutput"/>, analysed at 11:00.</summary>
     public static byte[] Analysis(
         string outputDirectory, string version, AnalysisOutcome verdict = AnalysisOutcome.Passed, IReadOnlyList<string>? triggers = null,
-        IReadOnlyList<AnalysisProblem>? problems = null)
+        IReadOnlyList<AnalysisProblem>? problems = null, LanguagePackAnalysis? languagePack = null)
     {
         var package = File.ReadAllBytes(Path.Combine(outputDirectory, $"{PluginId}-{version}.rsplugin"));
         var sbom = File.ReadAllBytes(Path.Combine(outputDirectory, $"{PluginId}-{version}.cdx.json"));
@@ -72,6 +72,7 @@ internal static class Samples
             Package = new AnalysedPackage(SemanticVersion.Parse(version), Hashes.Sha256(package), package.Length),
             Sbom = new ProducedFile(Hashes.Sha256(sbom), sbom.Length),
             Capabilities = new CapabilityAnalysis([], [new DetectedCapability("network", [], 0)], [], []),
+            LanguagePack = languagePack,
         });
     }
 
@@ -89,8 +90,9 @@ internal static class Samples
         ReleaseNotes = $"Release {version}.",
     };
 
-    /// <summary>Writes a build output folder for a version, as <c>rshub build package</c> would.</summary>
-    public static string WriteBuildOutput(string directory, string version, string name = "Lumen Todo", bool banner = false)
+    /// <summary>Writes a build output folder for a version, as <c>rshub build package</c> would; a language pack declares no capabilities.</summary>
+    public static string WriteBuildOutput(
+        string directory, string version, string name = "Lumen Todo", bool banner = false, IReadOnlyList<string>? languages = null, ManifestLanguagePack? languagePack = null)
     {
         Directory.CreateDirectory(Path.Combine(directory, "images"));
         var images = new List<EncodedImage>();
@@ -126,10 +128,12 @@ internal static class Samples
             Repository = $"https://github.com/{RepositoryName}",
             RunesmithApi = "^0.1.0",
             Projects = new ManifestProjects { Contracts = "src/C/C.csproj", Implementation = "src/I/I.csproj" },
-            Capabilities = [new ManifestCapability { Id = "network", Reason = "Links TODOs to issues." }],
-            NetworkHosts = ["api.github.com"],
+            Capabilities = languagePack is null ? [new ManifestCapability { Id = "network", Reason = "Links TODOs to issues." }] : null,
+            NetworkHosts = languagePack is null ? ["api.github.com"] : null,
             Icon = "icon.png",
             Categories = ["Productivity"],
+            Languages = languages,
+            LanguagePack = languagePack,
         };
         var assemblies = new PackagedAssemblies
         {

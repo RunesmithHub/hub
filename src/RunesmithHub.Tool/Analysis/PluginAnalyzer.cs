@@ -6,6 +6,7 @@ using RunesmithHub.Tool.Analysis.Api;
 using RunesmithHub.Tool.Analysis.Detection;
 using RunesmithHub.Tool.Analysis.Heuristics;
 using RunesmithHub.Tool.Analysis.Isolation;
+using RunesmithHub.Tool.Analysis.Localization;
 using RunesmithHub.Tool.Analysis.Reporting;
 using RunesmithHub.Tool.Analysis.Vulnerabilities;
 using RunesmithHub.Tool.Build;
@@ -78,6 +79,8 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
         var (web, webProblem) = WebContentCheck.Check(package, previous);
         if (webProblem is not null)
             problems.Add(webProblem);
+        var translations = TranslationCheck.Check(manifest, package.Implementation);
+        problems.AddRange(translations.Problems);
 
         var matches = request.Rules is { } rules ? HeuristicEngine.Run(rules, package) : null;
         if (matches is { Count: > 0 })
@@ -115,6 +118,8 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
             Vulnerabilities = advisories,
             BuildLogic = buildLogic,
             Web = web,
+            Languages = translations.Languages,
+            LanguagePack = translations.LanguagePack,
             Heuristics = request.Rules is null ? HeuristicsState.Skipped : HeuristicsState.Ran,
             Sbom = provenance.Sbom is { } sbom ? new ProducedFile(Hashes.Sha256(sbom), sbom.Length) : null,
         };

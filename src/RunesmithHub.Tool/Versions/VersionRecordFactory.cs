@@ -100,6 +100,16 @@ internal static class VersionRecordFactory
             Deprecated = manifest.Deprecated,
             License = manifest.License,
             ReportUrl = HubLocations.IssueUrl(job.TrackingIssue),
+            Languages = manifest.Languages,
+            LanguagePack = manifest.LanguagePack is { } pack
+                ? new LanguagePackSummary
+                {
+                    Language = pack.Language,
+                    Name = pack.Name,
+                    EnglishName = pack.EnglishName,
+                    Targets = [.. (analysis.LanguagePack?.Targets ?? []).Select(target => target.Target)],
+                }
+                : null,
             TrackingIssue = job.TrackingIssue,
             BuildRun = runId,
             AnalysisDigest = digest,

@@ -62,6 +62,25 @@ public sealed class VersionProposerTests : IDisposable
         Assert.Equal(501, record.TrackingIssue);
         Assert.Equal("MIT", record.License);
         Assert.Equal("https://github.com/RunesmithHub/registry/issues/501", record.ReportUrl);
+        Assert.Null(record.Languages);
+        Assert.Null(record.LanguagePack);
+    }
+
+    [Fact]
+    public async Task CarriesTheLanguagesOfALocalizedPluginAndWhatALanguagePackTranslatesIntoTheIndex()
+    {
+        var localizedOutput = Samples.WriteBuildOutput(_folder.Combine("localized"), "1.0.0", languages: ["en", "nl"]);
+        var packOutput = Samples.WriteBuildOutput(_folder.Combine("pack"), "1.0.1", languagePack: new() { Language = "nl", Name = "Nederlands", EnglishName = "Dutch" });
+        var packAnalysis = Samples.Analysis(packOutput, "1.0.1", languagePack: new LanguagePackAnalysis("nl", [new TargetMessages("runesmith", 12), new TargetMessages("runesmith.git", 3)]));
+
+        var localized = await CreateAsync(VersionInputs.Read(Samples.Analysis(localizedOutput, "1.0.0"), Samples.Job("1.0.0"), localizedOutput, 18_000_002));
+        var pack = await CreateAsync(VersionInputs.Read(packAnalysis, Samples.Job("1.0.1"), packOutput, 18_000_003));
+
+        Assert.Equal(["en", "nl"], localized.ToIndexRecord().Languages);
+        Assert.Null(localized.LanguagePack);
+        Assert.Null(pack.Languages);
+        Assert.Equivalent(
+            new LanguagePackSummary { Language = "nl", Name = "Nederlands", EnglishName = "Dutch", Targets = ["runesmith", "runesmith.git"] }, pack.ToIndexRecord().LanguagePack, strict: true);
     }
 
     [Fact]

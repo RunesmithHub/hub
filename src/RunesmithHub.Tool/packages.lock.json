@@ -2,6 +2,15 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "Linguini.Syntax": {
+        "type": "Direct",
+        "requested": "[0.10.2, )",
+        "resolved": "0.10.2",
+        "contentHash": "12eTyWeMwRQ+zgby5xx/gPU9NsLK0ls+3PMpLHdM7t2VA1m2xpZdtzcgHnI8eHSRHDNvm0xEw/6oHCzwpH4xiQ==",
+        "dependencies": {
+          "Linguini.Shared": "0.10.1"
+        }
+      },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
         "requested": "[5.6.0, )",
@@ -47,6 +56,11 @@
         "requested": "[2.0.12, )",
         "resolved": "2.0.12",
         "contentHash": "FpW672e6qqrTd1EfKqsvUtFZaJWlTlszUR1o8tdakXhkzKbnEZVndtpfd4K3fUPCFcIs9UmcswMyYGJP1zp/rg=="
+      },
+      "Linguini.Shared": {
+        "type": "Transitive",
+        "resolved": "0.10.1",
+        "contentHash": "yL0S7MmOm7zW/FPGqnA45xFiiP09O0aHGyMkElwyU97B1Fd3ZEJKtbuP5xaIm4ZlbFH/IA3T9mXYPzQ/5LwEAQ=="
       },
       "Newtonsoft.Json": {
         "type": "Transitive",

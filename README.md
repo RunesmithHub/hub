@@ -28,9 +28,14 @@ rshub check
 ```
 
 It restores both projects in locked mode from nuget.org and the hub feed, builds them in Release with deterministic settings, assembles
-the `.rsplugin` package, and checks the manifest, images, capabilities, the boundary between contracts and implementation, the
-contracts' semantic version, bundled packages, known vulnerabilities, licenses and build logic. The exit code is 1 when the release would
-fail; a report that passes may still say a person will review the version, for example because it is the first one.
+the `.rsplugin` package, and checks the manifest, images, capabilities, translations, the boundary between contracts and implementation,
+the contracts' semantic version, bundled packages, known vulnerabilities, licenses and build logic. The exit code is 1 when the release
+would fail; a report that passes may still say a person will review the version, for example because it is the first one.
+
+Translations are Fluent files the implementation embeds as `locales/<language>/<file>.ftl`. A plugin that has them lists their languages,
+English included, in `languages` in `plugin.json`; the check fails when a listed language has no file, a file's language is not listed, or
+a file does not parse. A language pack declares `languagePack` instead, and embeds only `locales/<its language>/<target>/<file>.ftl`, where
+the target is `runesmith` or a plugin ID. The report lists the languages, or the pack's targets, with the number of messages of each.
 
 The package also takes the `web` folder next to `plugin.json`, with the pages web views show. It may hold only the file types web pages
 use, such as `.html`, `.css`, `.js`, `.wasm`, images and fonts, and no symbolic links. A person reviews its JavaScript and WebAssembly in

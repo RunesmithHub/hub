@@ -11,6 +11,7 @@
     <RootNamespace>RunesmithHub.Tool</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Linguini.Syntax" />
     <PackageReference Include="Mono.Cecil" />
     <PackageReference Include="NuGet.Packaging" />
     <PackageReference Include="SkiaSharp" />

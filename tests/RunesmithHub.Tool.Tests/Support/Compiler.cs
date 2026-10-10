@@ -14,7 +14,10 @@ internal static class Compiler
     /// <exception cref="InvalidOperationException">The source does not compile.</exception>
     public static byte[] Compile(string assemblyName, string source, params byte[][] references) => Compile(assemblyName, source, unsafeCode: false, references);
 
-    public static byte[] Compile(string assemblyName, string source, bool unsafeCode, params byte[][] references)
+    public static byte[] Compile(string assemblyName, string source, bool unsafeCode, params byte[][] references) => Compile(assemblyName, source, unsafeCode, [], references);
+
+    /// <summary>Compiles source into an assembly that embeds resources by their logical names.</summary>
+    public static byte[] Compile(string assemblyName, string source, bool unsafeCode, IReadOnlyList<(string Name, byte[] Content)> resources, params byte[][] references)
     {
         var compilation = CSharpCompilation.Create(
             assemblyName,
@@ -22,7 +25,7 @@ internal static class Compiler
             [.. Framework.Value, .. references.Select(reference => MetadataReference.CreateFromImage(reference))],
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: unsafeCode, nullableContextOptions: NullableContextOptions.Enable, deterministic: true));
         using var output = new MemoryStream();
-        var result = compilation.Emit(output);
+        var result = compilation.Emit(output, manifestResources: [.. resources.Select(resource => new ResourceDescription(resource.Name, () => new MemoryStream(resource.Content), isPublic: true))]);
         if (!result.Success)
             throw new InvalidOperationException(string.Join("\n", result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)));
         return output.ToArray();

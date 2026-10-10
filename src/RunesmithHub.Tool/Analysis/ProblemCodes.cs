@@ -27,4 +27,6 @@ internal static class ProblemCodes
     public const string SizeGrowth = "size-growth";
     public const string Heuristic = "heuristic";
     public const string WebContent = "web-content";
+    public const string Translations = "translations";
+    public const string LanguagePack = "language-pack";
 }

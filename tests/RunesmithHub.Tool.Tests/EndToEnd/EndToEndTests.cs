@@ -208,6 +208,38 @@ public sealed class EndToEndTests(BuiltSamplePlugin sample) : IClassFixture<Buil
         Assert.True(File.Exists(Path.Combine(sample.Folder("check"), "analysis", AnalysisReport.FileName)));
     }
 
+    [Fact]
+    public async Task TheCheckCommandBuildsALocalizedPluginAndShowsItsLanguages()
+    {
+        SkipUnlessBuilt();
+        var copy = sample.Folder("localized");
+        CopyWithoutGit(sample.Repository, copy);
+        SamplePlugin.WritePlugin(sample.Folder("localized-source"), Path.Combine(sample.Folder("sdk"), "out", "Runesmith.Sdk.dll"), declareNetwork: true);
+        var manifest = File.ReadAllText(Path.Combine(sample.Folder("localized-source"), "plugin.json"));
+        File.WriteAllText(Path.Combine(copy, "plugin.json"), manifest.Replace("\"icon\": \"icon.png\",", "\"languages\": [\"en\", \"nl\"],\n  \"icon\": \"icon.png\",", StringComparison.Ordinal));
+        var project = Path.Combine(copy, "Lumen.Sample");
+        foreach (var (language, content) in new[] { ("en", "greeting = Hello, { $name }\nfarewell = Goodbye\n"), ("nl", "greeting = Hallo, { $name }\n") })
+        {
+            Directory.CreateDirectory(Path.Combine(project, "locales", language));
+            File.WriteAllText(Path.Combine(project, "locales", language, "lumen.sample.ftl"), content);
+        }
+
+        var csproj = Path.Combine(project, "Lumen.Sample.csproj");
+        File.WriteAllText(csproj, File.ReadAllText(csproj).Replace("</Project>", """
+              <ItemGroup>
+                <EmbeddedResource Include="locales/en/lumen.sample.ftl" LogicalName="locales/en/lumen.sample.ftl" />
+                <EmbeddedResource Include="locales/nl/lumen.sample.ftl" LogicalName="locales/nl/lumen.sample.ftl" />
+              </ItemGroup>
+            </Project>
+            """, StringComparison.Ordinal));
+
+        var (exitCode, output, error) = await new ToolRunner().RunAsync("check", copy, "--output", sample.Folder("localized-check"));
+
+        Assert.True(exitCode == 0, output + error);
+        Assert.Contains("**Verdict: passed, needs review**", output, StringComparison.Ordinal);
+        Assert.Contains("\n## Languages\n\n| Language | Messages |\n| --- | --- |\n| en | 2 |\n| nl | 1 |\n", output.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+    }
+
     private static void CopyWithoutGit(string source, string target)
     {
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))

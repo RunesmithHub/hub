@@ -5,6 +5,7 @@
     <SkiaSharpVersion>4.153.1</SkiaSharpVersion>
   </PropertyGroup>
   <ItemGroup Label="Tool">
+    <PackageVersion Include="Linguini.Syntax" Version="0.10.2" />
     <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
     <PackageVersion Include="NuGet.Packaging" Version="7.9.0" />
     <PackageVersion Include="SkiaSharp" Version="$(SkiaSharpVersion)" />

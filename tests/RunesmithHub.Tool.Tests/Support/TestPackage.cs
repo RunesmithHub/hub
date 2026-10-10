@@ -70,11 +70,19 @@ internal sealed record TestPackage
 
     public IReadOnlyList<PackageFile> ExtraFiles { get; init; } = [];
 
+    public IReadOnlyList<string>? Languages { get; init; }
+
+    public ManifestLanguagePack? LanguagePack { get; init; }
+
+    /// <summary>Gets the resources the implementation embeds, by their logical names, such as <c>locales/nl/lumen.todo.ftl</c>.</summary>
+    public IReadOnlyList<(string Name, byte[] Content)> Resources { get; init; } = [];
+
     private string ContractsAssembly => ContractsName ?? Root + ".Contracts";
 
     public byte[] Contracts() => Compiler.Compile(ContractsAssembly, ContractsSource, [.. References]);
 
-    public byte[] Implementation() => Compiler.Compile(Root, ImplementationSource, [Contracts(), .. References, .. Bundled.Select(bundled => bundled.Image)]);
+    public byte[] Implementation() =>
+        Compiler.Compile(Root, ImplementationSource, unsafeCode: false, Resources, [Contracts(), .. References, .. Bundled.Select(bundled => bundled.Image)]);
 
     /// <summary>Gets the NuGet package file of every locked package.</summary>
     public IReadOnlyDictionary<(string Id, string Version), byte[]> NuGetPackages() => Locked.ToDictionary(
@@ -169,5 +177,7 @@ internal sealed record TestPackage
         NetworkHosts = NetworkHosts,
         Icon = "icon.png",
         Categories = ["Productivity"],
+        Languages = Languages,
+        LanguagePack = LanguagePack,
     };
 }

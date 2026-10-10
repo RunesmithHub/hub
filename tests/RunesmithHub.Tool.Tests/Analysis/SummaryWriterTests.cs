@@ -66,6 +66,10 @@ public sealed class SummaryWriterTests : IDisposable
 
             - target Stamp in Directory.Build.targets line 1
 
+            ## Languages
+
+            Not localized: English only, from the plugin's code.
+
             ## Review rules
 
             Review rules were not run.
@@ -113,5 +117,37 @@ public sealed class SummaryWriterTests : IDisposable
 
         Assert.Contains("- It declares a network host the previous version did not.\n", summary, StringComparison.Ordinal);
         Assert.Contains("\nNetwork hosts: `api.github.com`, `codeberg.org`.\n\nNetwork hosts added since the previous version: `codeberg.org`.\n", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ListsTheLanguagesWithTheirMessages()
+    {
+        var localized = new TestPackage
+        {
+            Languages = ["en", "nl"],
+            Resources = [("locales/en/lumen.todo.ftl", "todo-count = Todos\ntodo-empty = Nothing to do\n"u8.ToArray()), ("locales/nl/lumen.todo.ftl", "todo-count = Taken\n"u8.ToArray())],
+        };
+
+        var summary = await SummaryAsync(localized, null);
+
+        Assert.Contains("\n## Languages\n\n| Language | Messages |\n| --- | --- |\n| en | 2 |\n| nl | 1 |\n\n## Review rules\n", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShowsTheLanguageOfALanguagePackAndWhatItTranslates()
+    {
+        var pack = new TestPackage
+        {
+            LanguagePack = new() { Language = "pt-BR", Name = "Português (Brasil)", EnglishName = "Portuguese (Brazil)" },
+            Resources = [("locales/pt-BR/runesmith.git/git.ftl", "git-commit = Confirmar\n"u8.ToArray()), ("locales/pt-BR/runesmith/shell.ftl", "settings-title = Configurações\nfind = Localizar\n"u8.ToArray())],
+        };
+
+        var summary = await SummaryAsync(pack, null);
+
+        Assert.Contains(
+            "\n## Language pack\n\nAdds `pt-BR`: Português (Brasil), in English Portuguese (Brazil).\n\n| Translates | Messages |\n| --- | --- |\n| runesmith | 2 |\n| runesmith.git | 1 |\n",
+            summary,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("## Languages", summary, StringComparison.Ordinal);
     }
 }

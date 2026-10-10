@@ -44,5 +44,7 @@ internal static class PackagedManifestCheck
         Categories = manifest.Categories,
         Keywords = manifest.Keywords,
         Deprecated = manifest.Deprecated is { } deprecated ? new ManifestDeprecation { Reason = deprecated.Reason, Replacement = deprecated.Replacement } : null,
+        Languages = manifest.Languages,
+        LanguagePack = manifest.LanguagePack is { } pack ? new ManifestLanguagePack { Language = pack.Language, Name = pack.Name, EnglishName = pack.EnglishName } : null,
     };
 }

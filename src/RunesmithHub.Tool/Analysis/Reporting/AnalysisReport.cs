@@ -53,6 +53,12 @@ internal sealed record AnalysisReport
     /// <summary>Gets the files web views show; absent when neither this nor the previous version has any.</summary>
     public WebContentAnalysis? Web { get; init; }
 
+    /// <summary>Gets the languages of the plugin's own translations with their messages; absent when it embeds and lists none.</summary>
+    public IReadOnlyList<LanguageMessages>? Languages { get; init; }
+
+    /// <summary>Gets the language a language pack adds and the messages it translates for each target; absent for other plugins.</summary>
+    public LanguagePackAnalysis? LanguagePack { get; init; }
+
     public HeuristicsState Heuristics { get; init; }
 
     /// <summary>Gets the SBOM the analysis wrote from the verified package; the build's SBOM must be exactly this file.</summary>
@@ -116,3 +122,12 @@ internal sealed record DependencyAnalysis(IReadOnlyList<PluginDependency> Plugin
 /// <param name="Code">The JavaScript and WebAssembly files.</param>
 /// <param name="Changed">The web files added, changed or removed since the previous version; null for a first version.</param>
 internal sealed record WebContentAnalysis(int Files, IReadOnlyList<string> Code, IReadOnlyList<string>? Changed);
+
+/// <summary>A language of the plugin's own translations and how many messages its files define.</summary>
+internal sealed record LanguageMessages(string Language, int Messages);
+
+/// <summary>What a language pack translates, <c>runesmith</c> or a plugin ID, and how many messages its files define for it.</summary>
+internal sealed record TargetMessages(string Target, int Messages);
+
+/// <summary>The language a language pack adds and the targets it translates.</summary>
+internal sealed record LanguagePackAnalysis(string Language, IReadOnlyList<TargetMessages> Targets);

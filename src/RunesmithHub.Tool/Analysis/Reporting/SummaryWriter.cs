@@ -6,7 +6,8 @@ namespace RunesmithHub.Tool.Analysis.Reporting;
 
 /// <summary>
 /// Writes <c>summary.md</c>, the readable report for the tracking issue and the version pull request: the verdict first, then capability,
-/// dependency, maintainer, build logic and web content changes, the heuristic notice, and the comparison with the previous version.
+/// dependency, maintainer, build logic and web content changes, the languages, the heuristic notice, and the comparison with the previous
+/// version.
 /// </summary>
 internal static class SummaryWriter
 {
@@ -36,6 +37,7 @@ internal static class SummaryWriter
         WriteDependencies(text, report);
         WriteMaintainersAndBuildLogic(text, report);
         WriteWebContent(text, report);
+        WriteLanguages(text, report);
         text.Append("\n## Review rules\n\n").Append(report.Heuristics switch
         {
             HeuristicsState.Skipped => "Review rules were not run.",
@@ -180,6 +182,36 @@ internal static class SummaryWriter
 
     private static string Listed(IReadOnlyList<string> files) =>
         string.Join(", ", files.Take(SitesShown).Select(file => $"`{file}`")) + (files.Count > SitesShown ? $" and {files.Count - SitesShown} more" : "");
+
+    private static void WriteLanguages(StringBuilder text, AnalysisReport report)
+    {
+        if (report.Manifest!.LanguagePack is { } pack)
+        {
+            text.Append("\n## Language pack\n\n");
+            text.Append(CultureInfo.InvariantCulture, $"Adds `{Printable(pack.Language)}`: {Printable(pack.Name)}, in English {Printable(pack.EnglishName)}.\n\n");
+            var targets = report.LanguagePack?.Targets ?? [];
+            if (targets.Count == 0)
+                text.Append("It translates nothing.\n");
+            else
+                Table(text, "Translates", targets.Select(target => (target.Target, target.Messages)));
+            return;
+        }
+
+        text.Append("\n## Languages\n\n");
+        if (report.Languages is { Count: > 0 } languages)
+            Table(text, "Language", languages.Select(language => (Printable(language.Language), language.Messages)));
+        else
+            text.Append("Not localized: English only, from the plugin's code.\n");
+    }
+
+    private static void Table(StringBuilder text, string heading, IEnumerable<(string Name, int Messages)> rows)
+    {
+        text.Append("| ").Append(heading).Append(" | Messages |\n| --- | --- |\n");
+        foreach (var (name, messages) in rows)
+            text.Append(CultureInfo.InvariantCulture, $"| {name} | {messages} |\n");
+    }
+
+    private static string Printable(string text) => Localization.TranslationCheck.Printable(text);
 
     private static void WriteComparison(StringBuilder text, AnalysisReport report)
     {
