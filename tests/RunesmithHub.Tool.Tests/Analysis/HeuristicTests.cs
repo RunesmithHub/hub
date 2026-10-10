@@ -79,6 +79,25 @@ public sealed class HeuristicTests : IDisposable
     }
 
     [Fact]
+    public void LeavesCompressedFormatsOutOfEntropyOnlyWhenTheirBytesMatchTheFormat()
+    {
+        byte[] noise = [.. Enumerable.Range(0, 600).Select(i => (byte)(i * 151 % 256))];
+        var package = new TestPackage
+        {
+            ExtraFiles =
+            [
+                new PackageFile("web/picture.png", (byte[])[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. noise]),
+                new PackageFile("web/disguised.png", noise),
+            ],
+        };
+
+        var matches = Run("""{ "rules": [{ "id": "random", "kind": "entropy", "minLength": 400, "minBitsPerByte": 7.5 }] }""", package);
+
+        Assert.Contains(matches, match => match.File == "web/disguised.png");
+        Assert.DoesNotContain(matches, match => match.File == "web/picture.png");
+    }
+
+    [Fact]
     public void MeasuresEntropyInBitsPerByte()
     {
         Assert.Equal(0, HeuristicEngine.Entropy(Encoding.UTF8.GetBytes(new string('x', 2000))));
