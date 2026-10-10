@@ -4,10 +4,11 @@ using RunesmithHub.Tool.Analysis.Reporting;
 
 namespace RunesmithHub.Tool.Analysis;
 
-/// <summary>Compares detected capabilities with the declared ones, and both with the previous version's.</summary>
+/// <summary>Compares detected capabilities with the declared ones, and both and the network hosts with the previous version's.</summary>
 internal static class CapabilityCheck
 {
     private const int SitesInMessage = 3;
+    private const string AnyHost = "*";
 
     public static (CapabilityAnalysis Analysis, IReadOnlyList<AnalysisProblem> Problems) Check(
         PackagedManifest manifest, DetectedCapabilities detected, PackagedManifest? previousManifest, DetectedCapabilities? previousDetected)
@@ -35,9 +36,15 @@ internal static class CapabilityCheck
             return new DetectedCapability(id, [.. sites.Take(CapabilityAnalysis.MaxCallSites)], sites.Count);
         }).ToList();
         var analysis = new CapabilityAnalysis(
-            manifest.Capabilities, detectedList, [.. Ordered(now.Except(before))], [.. Ordered(before.Except(now))]);
+            manifest.Capabilities, detectedList, [.. Ordered(now.Except(before))], [.. Ordered(before.Except(now))])
+        {
+            NetworkHostsAdded = previousManifest is null ? [] : HostsAdded(previousManifest.NetworkHosts, manifest.NetworkHosts),
+        };
         return (analysis, problems);
     }
+
+    private static string[] HostsAdded(IReadOnlyList<string> before, IReadOnlyList<string> after) =>
+        before.Contains(AnyHost, StringComparer.Ordinal) ? [] : [.. after.Except(before, StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)];
 
     /// <summary>Gets every capability a version declares or uses.</summary>
     public static HashSet<string> Union(IEnumerable<string> declared, DetectedCapabilities detected) =>

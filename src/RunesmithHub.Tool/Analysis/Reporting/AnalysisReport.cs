@@ -88,11 +88,14 @@ internal sealed record PreviousPackage(SemanticVersion Version, string Commit, l
 /// <summary>A detected capability with up to <see cref="CapabilityAnalysis.MaxCallSites"/> of the places it is used, and how many there are.</summary>
 internal sealed record DetectedCapability(string Id, IReadOnlyList<CallSite> CallSites, int CallSiteCount);
 
-/// <summary>Declared and detected capabilities, and which the version gains or loses against the previous one.</summary>
+/// <summary>Declared and detected capabilities, and which the version gains or loses against the previous one, with its new network hosts.</summary>
 internal sealed record CapabilityAnalysis(
     IReadOnlyList<DeclaredCapability> Declared, IReadOnlyList<DetectedCapability> Detected, IReadOnlyList<string> Added, IReadOnlyList<string> Removed)
 {
     public const int MaxCallSites = 25;
+
+    /// <summary>Gets the network hosts the version declares that the previous version did not.</summary>
+    public IReadOnlyList<string> NetworkHostsAdded { get; init => field = value ?? []; } = [];
 }
 
 /// <summary>The contracts changes since the previous version.</summary>

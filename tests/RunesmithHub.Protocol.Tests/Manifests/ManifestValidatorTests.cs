@@ -56,6 +56,28 @@ public sealed class ManifestValidatorTests
     }
 
     [Fact]
+    public void AcceptsNoNetworkHostsWithoutTheNetworkCapability()
+    {
+        var json = ValidManifest
+            .Replace("{ \"id\": \"network\", \"reason\": \"Reads issues from your tracker.\" }", "{ \"id\": \"filesystem\", \"reason\": \"Reads files.\" }", StringComparison.Ordinal)
+            .Replace("\"networkHosts\": [\"api.github.com\", \"*\"],", "", StringComparison.Ordinal);
+
+        Assert.Empty(ManifestValidator.Validate(Encoding.UTF8.GetBytes(json)).Problems);
+    }
+
+    [Fact]
+    public void ReportsNetworkHostsWithoutTheNetworkCapability()
+    {
+        var json = ValidManifest.Replace(
+            "{ \"id\": \"network\", \"reason\": \"Reads issues from your tracker.\" }", "{ \"id\": \"filesystem\", \"reason\": \"Reads files.\" }", StringComparison.Ordinal);
+
+        var problem = Assert.Single(ManifestValidator.Validate(Encoding.UTF8.GetBytes(json)).Problems);
+
+        Assert.Equal("networkHosts", problem.Path);
+        Assert.Contains("only allowed with the network capability", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReportsAnUnknownPropertyWithItsPath()
     {
         var json = ValidManifest.Replace("\"homepage\"", "\"homepag\"", StringComparison.Ordinal);
@@ -118,6 +140,9 @@ public sealed class ManifestValidatorTests
         { "{ \"id\": \"network\", \"reason\": \"Reads issues from your tracker.\" }", "{ \"id\": \"network\", \"reason\": \"\" }", "capabilities[0].reason" },
         { "\"networkHosts\": [\"api.github.com\", \"*\"]", "\"networkHosts\": []", "networkHosts" },
         { "\"networkHosts\": [\"api.github.com\", \"*\"]", "\"networkHosts\": [\"not a host\"]", "networkHosts[0]" },
+        { "\"networkHosts\": [\"api.github.com\", \"*\"]", "\"networkHosts\": [\"api.github.com\", \"https://api.github.com\"]", "networkHosts[1]" },
+        { "\"networkHosts\": [\"api.github.com\", \"*\"]", "\"networkHosts\": [\"\"]", "networkHosts[0]" },
+        { "{ \"id\": \"network\", \"reason\": \"Reads issues from your tracker.\" }", "{ \"id\": \"filesystem\", \"reason\": \"Reads files.\" }", "networkHosts" },
         { "\"platforms\": [\"windows\", \"linux\"]", "\"platforms\": [\"windows\", \"bsd\"]", "platforms[1]" },
         { "\"platforms\": [\"windows\", \"linux\"]", "\"platforms\": [\"linux\", \"linux\"]", "platforms[1]" },
         { "\"icon\": \"assets/icon.png\"", "\"icon\": \"assets/icon.svg\"", "icon" },

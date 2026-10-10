@@ -55,7 +55,7 @@ public static class PackageVerifier
     private static bool MustBeListed(string name) =>
         RelativePaths.HasExtension(name, ".dll", ".exe") || PackageEntryRules.IsProcessFile($"{LibFolder}/{name}");
 
-    /// <summary>Checks that the packaged manifest's ID, version, API range, dependencies and capabilities match the version record.</summary>
+    /// <summary>Checks that the packaged manifest's ID, version, API range, dependencies, capabilities and network hosts match the version record.</summary>
     /// <returns>Every difference found; empty when they match.</returns>
     public static IReadOnlyList<string> CheckAgainstRecord(PackagedManifest manifest, string pluginId, VersionRecord record)
     {
@@ -76,6 +76,8 @@ public static class PackageVerifier
         static string Capability(DeclaredCapability capability) => $"{capability.Id}\n{capability.Reason}";
         if (!manifest.Capabilities.Select(Capability).ToHashSet(StringComparer.Ordinal).SetEquals(record.Capabilities.Declared.Select(Capability)))
             problems.Add("The package's capabilities differ from the record's.");
+        if (!manifest.NetworkHosts.ToHashSet(StringComparer.Ordinal).SetEquals(record.NetworkHosts))
+            problems.Add("The package's network hosts differ from the record's.");
         return problems;
     }
 }

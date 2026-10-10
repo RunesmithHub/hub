@@ -23,6 +23,8 @@ internal sealed record TriggerFacts
 
     public bool NameChanged { get; init; }
 
+    public bool NetworkHostsAdded { get; init; }
+
     public PluginTier Tier { get; init; } = PluginTier.Unverified;
 
     public IReadOnlyList<AnalysisProblem> Problems { get; init; } = [];
@@ -56,6 +58,7 @@ internal static class ReviewTriggerRules
         When(facts.Tier != PluginTier.Unverified, ReviewTriggers.Tier);
         When(facts.Problems.Any(problem => problem.Code == ProblemCodes.LicenseCombination), ReviewTriggers.License);
         When(facts.Problems.Any(problem => problem.Code == ProblemCodes.ContractsContent), ReviewTriggers.ContractsContent);
+        When(facts.NetworkHostsAdded, ReviewTriggers.NetworkHostAdded);
         When(facts.Problems.Any(problem => problem.Code == ProblemCodes.WebContent), ReviewTriggers.WebContent);
         return [.. ReviewTriggers.All.Where(triggers.Contains)];
     }

@@ -378,4 +378,47 @@ public sealed class PluginAnalyzerTests : IDisposable
         Assert.Equal(["web/app.js", "web/index.html"], removed.Web!.Changed);
         Assert.Null((await AnalyseAsync(new TestPackage { Version = "1.0.1" }, new TestPackage())).Report.Web);
     }
+
+    [Fact]
+    public async Task ReviewsNetworkHostsThePreviousVersionDidNotDeclare()
+    {
+        var previous = new TestPackage { Capabilities = [("network", "Fetches todos.")], NetworkHosts = ["api.github.com"] };
+
+        var same = (await AnalyseAsync(previous with { Version = "1.0.1", NetworkHosts = ["API.github.com"] }, previous)).Report;
+        var added = (await AnalyseAsync(previous with { Version = "1.0.1", NetworkHosts = ["api.github.com", "*"] }, previous)).Report;
+        var fromAny = (await AnalyseAsync(previous with { Version = "1.0.1", NetworkHosts = ["codeberg.org"] }, previous with { NetworkHosts = ["*"] })).Report;
+
+        Assert.Empty(same.Triggers);
+        Assert.Empty(same.Capabilities!.NetworkHostsAdded);
+        Assert.Equal(["network-host-added"], added.Triggers);
+        Assert.Equal(["*"], added.Capabilities!.NetworkHostsAdded);
+        Assert.Contains("- It declares a network host the previous version did not.\n", SummaryWriter.Write(added), StringComparison.Ordinal);
+        Assert.Empty(fromAny.Triggers);
+    }
+
+    [Fact]
+    public void FailsAPackagedManifestWithNetworkHostsButNoNetworkCapability()
+    {
+        using var package = PackageSnapshot.Open(Write(new TestPackage()), PackageLimits.Default);
+        var manifest = package.Manifest with { NetworkHosts = ["api.github.com"] };
+
+        var problem = Assert.Single(PackagedManifestCheck.Check(manifest, TestRegistrations.For("lumen.todo", TestPackage.Repository)));
+
+        Assert.Equal(ProblemCodes.Manifest, problem.Code);
+        Assert.Equal(ProblemSeverity.Error, problem.Severity);
+        Assert.Contains("networkHosts: is only allowed with the network capability", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadsAnAnalysisWrittenBeforeWebContentAndNetworkHosts()
+    {
+        var report = (await AnalyseAsync(new TestPackage())).Report;
+        var json = System.Text.RegularExpressions.Regex.Replace(Json.ArtifactJson.SerializeToString(report), ",\\s*\"networkHostsAdded\": \\[\\]", "");
+
+        var read = AnalysisReport.Read(System.Text.Encoding.UTF8.GetBytes(json));
+
+        Assert.DoesNotContain("networkHostsAdded", json, StringComparison.Ordinal);
+        Assert.Empty(read.Capabilities!.NetworkHostsAdded);
+        Assert.Null(read.Web);
+    }
 }

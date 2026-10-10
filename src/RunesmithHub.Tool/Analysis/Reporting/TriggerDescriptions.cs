@@ -22,6 +22,7 @@ internal static class TriggerDescriptions
         [ReviewTriggers.Tier] = "Every version of an official or verified plugin is reviewed.",
         [ReviewTriggers.License] = "A bundled package's license may not combine with the plugin's.",
         [ReviewTriggers.ContractsContent] = "The contracts hold more than a public API needs.",
+        [ReviewTriggers.NetworkHostAdded] = "It declares a network host the previous version did not.",
         [ReviewTriggers.WebContent] = "Its web views run JavaScript or WebAssembly that is new or whose web files changed.",
     };
 

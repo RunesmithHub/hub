@@ -208,15 +208,18 @@ public sealed class PackageTests : IDisposable
         var record = Records.Version("1.0.0", dependencies: [("harbor.issues", ">=1.2.0")]) with
         {
             Capabilities = new CapabilityReport { Declared = [new DeclaredCapability { Id = "network", Reason = "Reads issues." }], Detected = ["network"] },
+            NetworkHosts = ["api.github.com"],
         };
 
         Assert.Empty(PackageVerifier.CheckAgainstRecord(manifest, "lumen.todo", record));
-        Assert.Equal(4, PackageVerifier.CheckAgainstRecord(manifest, "lumen.tasks", record with
+        Assert.Equal(5, PackageVerifier.CheckAgainstRecord(manifest, "lumen.tasks", record with
         {
             Version = SemanticVersion.Parse("1.0.1"),
             Dependencies = [],
             Capabilities = new CapabilityReport { Declared = [], Detected = [] },
+            NetworkHosts = ["*"],
         }).Count);
+        Assert.Equal(["The package's network hosts differ from the record's."], PackageVerifier.CheckAgainstRecord(manifest, "lumen.todo", record with { NetworkHosts = [] }));
     }
 
     [Theory]

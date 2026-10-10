@@ -84,6 +84,10 @@ internal static class SummaryWriter
 
         if (capabilities.Removed.Count > 0)
             text.Append("\nRemoved since the previous version: ").Append(string.Join(", ", capabilities.Removed)).Append(".\n");
+        if (report.Manifest!.NetworkHosts.Count > 0)
+            text.Append("\nNetwork hosts: ").Append(string.Join(", ", report.Manifest.NetworkHosts.Select(host => $"`{host}`"))).Append(".\n");
+        if (capabilities.NetworkHostsAdded.Count > 0)
+            text.Append("\nNetwork hosts added since the previous version: ").Append(string.Join(", ", capabilities.NetworkHostsAdded.Select(host => $"`{host}`"))).Append(".\n");
         foreach (var id in capabilities.Added.Where(detected.ContainsKey))
         {
             var capability = detected[id];

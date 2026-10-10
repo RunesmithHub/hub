@@ -18,11 +18,12 @@ public static class ReviewTriggers
     public const string Tier = "tier";
     public const string License = "license";
     public const string ContractsContent = "contracts-content";
+    public const string NetworkHostAdded = "network-host-added";
     public const string WebContent = "web-content";
 
     public static IReadOnlyList<string> All { get; } =
     [
         FirstVersion, CapabilityAdded, DynamicCode, NativeCode, NewNuGetPackage, MaintainersChanged, Heuristic, BuildLogic, SizeGrowth,
-        ReleaseAuthor, NameChanged, PreviousRestricted, Tier, License, ContractsContent, WebContent,
+        ReleaseAuthor, NameChanged, PreviousRestricted, Tier, License, ContractsContent, NetworkHostAdded, WebContent,
     ];
 }

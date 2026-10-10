@@ -210,6 +210,8 @@ public static partial class ManifestValidator
 
             if (seen.Contains(Protocol.Capabilities.Network) && (hosts is null || hosts.Count == 0))
                 Add("networkHosts", "is required with the network capability; list the hosts, or \"*\" for hosts the user chooses.");
+            else if (!seen.Contains(Protocol.Capabilities.Network) && hosts is { Count: > 0 })
+                Add("networkHosts", "is only allowed with the network capability; declare it, or remove the hosts.");
 
             for (var i = 0; i < (hosts?.Count ?? 0); i++)
             {

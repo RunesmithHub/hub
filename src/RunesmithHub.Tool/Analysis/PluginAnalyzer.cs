@@ -93,6 +93,7 @@ internal sealed class PluginAnalyzer(IVulnerabilityDatabase vulnerabilities, INu
             BuildLogic = buildLogic.Count > 0,
             SizeGrowth = sizeGrowth,
             NameChanged = previous is not null && !string.Equals(previous.Manifest.Name, manifest.Name, StringComparison.Ordinal),
+            NetworkHostsAdded = capabilities.NetworkHostsAdded.Count > 0,
             Tier = request.Registration.Tier,
             Problems = problems,
         });
