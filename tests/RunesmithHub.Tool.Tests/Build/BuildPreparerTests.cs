@@ -68,6 +68,21 @@ public sealed class BuildPreparerTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildsAPluginForApi011WithTheSdkOfThe01Line()
+    {
+        var manifest = Path.Combine(Root, "plugin.json");
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"runesmithApi\": \"^0.1.0\"", "\"runesmithApi\": \"^0.1.1\"", StringComparison.Ordinal));
+        WriteLockFile("Lumen.Sample.Contracts", "0.1.1");
+        WriteLockFile("Lumen.Sample", "0.1.1");
+
+        var plan = await PrepareAsync();
+
+        Assert.Equal("10.0.401", plan.DotnetSdk);
+        Assert.Equal("0.1.1", plan.RunesmithSdk);
+        Assert.Contains("\"-p:RunesmithSdkVersion=0.1.1\"", await File.ReadAllTextAsync(plan.Properties, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RejectsATagThatDoesNotNameTheManifestsVersion()
     {
         var exception = await Assert.ThrowsAsync<ToolException>(() => PrepareAsync(tag: "v1.0.1"));

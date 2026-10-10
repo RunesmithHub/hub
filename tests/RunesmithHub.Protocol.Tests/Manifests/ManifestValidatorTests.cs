@@ -55,6 +55,19 @@ public sealed class ManifestValidatorTests
         Assert.Empty(ManifestValidator.Validate(Encoding.UTF8.GetBytes(minimal)).Problems);
     }
 
+    [Theory]
+    [InlineData("^0.1.1", ">=0.1.1 <0.2.0")]
+    [InlineData(">=0.1.1", ">=0.1.1 <0.2.0")]
+    public void AcceptsTheRunesmithApiOfAPatchRelease(string range, string normalised)
+    {
+        var json = ValidManifest.Replace("\"runesmithApi\": \"^0.1.0\"", $"\"runesmithApi\": \"{range}\"", StringComparison.Ordinal);
+
+        var result = ManifestValidator.Validate(Encoding.UTF8.GetBytes(json));
+
+        Assert.Empty(result.Problems);
+        Assert.Equal(normalised, Protocol.Versioning.VersionRange.Parse(result.Manifest!.RunesmithApi!).Normalize().ToString());
+    }
+
     [Fact]
     public void AcceptsNoNetworkHostsWithoutTheNetworkCapability()
     {
