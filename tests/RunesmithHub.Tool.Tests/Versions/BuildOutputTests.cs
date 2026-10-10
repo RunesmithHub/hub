@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using RunesmithHub.Protocol.Packaging;
 using RunesmithHub.Protocol.Versioning;
+using RunesmithHub.Tool.Build;
 using RunesmithHub.Tool.Tests.Support;
 using RunesmithHub.Tool.Versions;
 
@@ -12,7 +13,8 @@ public sealed class BuildOutputTests : IDisposable
 
     public void Dispose() => _folder.Dispose();
 
-    private static BuildOutput Open(string directory) => BuildOutput.Open(directory, Samples.PluginId, SemanticVersion.Parse("1.0.0"), PackageLimits.Default);
+    private static BuildOutput Open(string directory) =>
+        BuildOutput.Open(directory, Samples.PluginId, SemanticVersion.Parse("1.0.0"), PackageLimits.Default, ExpectedHashes.FromHashList(directory));
 
     [Fact]
     public void FindsTheFilesTheBuildWrites()
@@ -38,6 +40,7 @@ public sealed class BuildOutputTests : IDisposable
             using var stream = archive.CreateEntry("lib/net10.0/Lumen.Todo.Contracts.dll").Open();
             stream.Write("something else"u8);
         }
+        Samples.Rehash(directory);
 
         var exception = Assert.Throws<ToolException>(() => Open(directory));
 
@@ -49,6 +52,7 @@ public sealed class BuildOutputTests : IDisposable
     {
         var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
         File.Copy(Path.Combine(directory, "images", "icon-128.png"), Path.Combine(directory, "images", "icon-64.png"), overwrite: true);
+        Samples.Rehash(directory);
 
         var exception = Assert.Throws<ToolException>(() => Open(directory));
 
@@ -60,7 +64,54 @@ public sealed class BuildOutputTests : IDisposable
     {
         var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
         File.Move(Path.Combine(directory, "lumen.todo-1.0.0.rsplugin"), Path.Combine(directory, "lumen.todo-1.1.0.rsplugin"));
+        Samples.Rehash(directory);
 
         Assert.Throws<ToolException>(() => Open(directory));
+    }
+
+    [Fact]
+    public void RefusesAnImageWhoseBytesAreNotTheOnesTheHashListNames()
+    {
+        var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
+        File.Copy(Path.Combine(directory, "images", "icon-128.png"), Path.Combine(directory, "images", "icon-64.png"), overwrite: true);
+
+        var exception = Assert.Throws<ToolException>(() => Open(directory));
+
+        Assert.Contains("images/icon-64.png does not have the hash hashes.json lists for it", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RefusesAPackageWhoseBytesAreNotTheOnesTheHashListNames()
+    {
+        var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
+        File.AppendAllText(Path.Combine(directory, "lumen.todo-1.0.0.rsplugin"), "more");
+
+        var exception = Assert.Throws<ToolException>(() => Open(directory));
+
+        Assert.Contains("lumen.todo-1.0.0.rsplugin does not have the hash hashes.json lists for it", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RefusesAnOutputWithoutAHashList()
+    {
+        var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
+        File.Delete(Path.Combine(directory, HashList.FileName));
+
+        var exception = Assert.Throws<ToolException>(() => Open(directory));
+
+        Assert.Contains("has no hashes.json", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptsOnlyFilesWithAHashTheRecordLists()
+    {
+        var directory = Samples.WriteBuildOutput(_folder.Path, "1.0.0");
+        var listed = HashList.Read(Path.Combine(directory, HashList.FileName)).Files
+            .Where(file => file.Path != "images/icon-256.png").Select(file => file.Sha256);
+
+        var exception = Assert.Throws<ToolException>(() =>
+            BuildOutput.Open(directory, Samples.PluginId, SemanticVersion.Parse("1.0.0"), PackageLimits.Default, ExpectedHashes.FromRecord(listed)));
+
+        Assert.Contains("images/icon-256.png does not have the hash the version record lists for it", exception.Message, StringComparison.Ordinal);
     }
 }

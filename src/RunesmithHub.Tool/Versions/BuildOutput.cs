@@ -22,6 +22,10 @@ internal sealed record OutputFile(string Name, string Path, string Sha256, long 
 
     public string AssetName => System.IO.Path.GetFileName(Name);
 
+    /// <summary>Hashes bytes already read from a file of the output.</summary>
+    public static OutputFile Of(string root, string path, byte[] content) =>
+        new(System.IO.Path.GetRelativePath(root, path).Replace('\\', '/'), path, Hashes.Sha256(content), content.Length);
+
     public HostedFile Hosted(string url) => new() { Urls = [url], Sha256 = Sha256, Length = Length };
 
     public AssetFile Asset() => new() { File = AssetName, Sha256 = Sha256, Length = Length };
@@ -46,6 +50,53 @@ internal sealed record OutputImage(OutputFile File, int Width, int Height, Image
 /// <summary>A screenshot at both widths with its caption.</summary>
 internal sealed record OutputGalleryItem(string Caption, OutputImage Width640, OutputImage Width1280);
 
+/// <summary>The hashes the files of a build output must have; each file is checked before anything parses it.</summary>
+internal sealed class ExpectedHashes
+{
+    private readonly Func<OutputFile, bool> _matches;
+    private readonly string _source;
+
+    private ExpectedHashes(Func<OutputFile, bool> matches, string source)
+    {
+        _matches = matches;
+        _source = source;
+    }
+
+    /// <summary>Expects every file to have the hash and length the output's <c>hashes.json</c> lists for its path.</summary>
+    /// <exception cref="ToolException">The output has no hash list, or it is not valid.</exception>
+    public static ExpectedHashes FromHashList(string directory)
+    {
+        var path = Path.Combine(directory, HashList.FileName);
+        if (!System.IO.File.Exists(path))
+            throw new ToolException($"{directory} has no {HashList.FileName}.");
+        HashList list;
+        try
+        {
+            list = HashList.Read(path);
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new ToolException($"{HashList.FileName}: {exception.Message}", exception);
+        }
+
+        var files = list.Files.GroupBy(file => file.Path, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        return new ExpectedHashes(
+            file => files.TryGetValue(file.Name, out var listed) && string.Equals(listed.Sha256, file.Sha256, StringComparison.Ordinal) && listed.Length == file.Length,
+            HashList.FileName);
+    }
+
+    /// <summary>Expects every file to have one of the hashes a version record lists.</summary>
+    public static ExpectedHashes FromRecord(IEnumerable<string?> sha256s)
+    {
+        var recorded = sha256s.OfType<string>().ToHashSet(StringComparer.Ordinal);
+        return new ExpectedHashes(file => recorded.Contains(file.Sha256), "the version record");
+    }
+
+    /// <exception cref="ToolException">The file does not have an expected hash.</exception>
+    public OutputFile Check(OutputFile file) =>
+        _matches(file) ? file : throw new ToolException($"{file.Name} does not have the hash {_source} lists for it.");
+}
+
 /// <summary>
 /// The output of <c>rshub build package</c> for one version, read as untrusted data: files are found by the names the build writes, the
 /// package must pass every packaging rule, and the contracts package must hold the package's contracts assembly.
@@ -54,8 +105,11 @@ internal sealed class BuildOutput
 {
     private static readonly int[] IconSizes = [64, 128, 256];
 
-    private BuildOutput(string directory, string pluginId, SemanticVersion version, PackageLimits limits)
+    private readonly ExpectedHashes _expected;
+
+    private BuildOutput(string directory, string pluginId, SemanticVersion version, PackageLimits limits, ExpectedHashes expected)
     {
+        _expected = expected;
         Directory = System.IO.Directory.Exists(directory) ? Path.GetFullPath(directory) : throw new ToolException($"{directory} does not exist.");
         var text = version.ToString();
         Package = File(BuildArtifacts.Package(pluginId, text));
@@ -111,19 +165,20 @@ internal sealed class BuildOutput
             .Concat(Banner is { } banner ? [banner.Width640.File, banner.Width1280.File] : [])
             .Concat(Gallery.SelectMany(item => new[] { item.Width640.File, item.Width1280.File }));
 
-    /// <summary>Opens the output of a version's build.</summary>
-    /// <exception cref="ToolException">A file is missing, breaks a rule, or belongs to another version.</exception>
-    public static BuildOutput Open(string directory, string pluginId, SemanticVersion version, PackageLimits limits)
+    /// <summary>Opens the output of a version's build, checking each file against the expected hashes before reading what is in it.</summary>
+    /// <exception cref="ToolException">A file is missing, does not have an expected hash, breaks a rule, or belongs to another version.</exception>
+    public static BuildOutput Open(string directory, string pluginId, SemanticVersion version, PackageLimits limits, ExpectedHashes expected)
     {
         ArgumentNullException.ThrowIfNull(version);
         ArgumentNullException.ThrowIfNull(limits);
-        return new BuildOutput(directory, pluginId, version, limits);
+        ArgumentNullException.ThrowIfNull(expected);
+        return new BuildOutput(directory, pluginId, version, limits, expected);
     }
 
     private OutputFile File(string name)
     {
         var path = Path.Combine(Directory, name);
-        return System.IO.File.Exists(path) ? OutputFile.Of(Directory, path) : throw new ToolException($"{Directory} has no {name}.");
+        return System.IO.File.Exists(path) ? _expected.Check(OutputFile.Of(Directory, path)) : throw new ToolException($"{Directory} has no {name}.");
     }
 
     private PackagedManifest ReadManifest(PackageLimits limits)
@@ -168,7 +223,10 @@ internal sealed class BuildOutput
         if (!System.IO.File.Exists(path))
             throw new ToolException($"{ImageEncoder.Folder}/{listed.File} is missing.");
 
-        using var codec = SKCodec.Create(path) ?? throw new ToolException($"{ImageEncoder.Folder}/{listed.File} is not an image.");
+        var bytes = System.IO.File.ReadAllBytes(path);
+        var file = _expected.Check(OutputFile.Of(Directory, path, bytes));
+        using var data = SKData.CreateCopy(bytes);
+        using var codec = SKCodec.Create(data) ?? throw new ToolException($"{ImageEncoder.Folder}/{listed.File} is not an image.");
         var format = codec.EncodedFormat switch
         {
             SKEncodedImageFormat.Png => ImageFormat.Png,
@@ -178,7 +236,7 @@ internal sealed class BuildOutput
         var expected = listed.Kind == "icon" ? ImageFormat.Png : ImageFormat.Webp;
         if (format != expected || codec.Info.Width != listed.Width || codec.Info.Height != listed.Height)
             throw new ToolException($"{ImageEncoder.Folder}/{listed.File} is not the {listed.Width}x{listed.Height} image {ImageList.FileName} lists.");
-        return new OutputImage(OutputFile.Of(Directory, path), codec.Info.Width, codec.Info.Height, format);
+        return new OutputImage(file, codec.Info.Width, codec.Info.Height, format);
     }
 
     private static OutputImage? Find(List<(EncodedImage Listed, OutputImage Image)> images, string kind, int? index, int width) =>

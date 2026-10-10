@@ -8,6 +8,7 @@ using RunesmithHub.Protocol.Registry;
 using RunesmithHub.Protocol.Versioning;
 using RunesmithHub.Tool.Analysis;
 using RunesmithHub.Tool.Analysis.Reporting;
+using RunesmithHub.Tool.Build;
 using RunesmithHub.Tool.Fixture;
 using RunesmithHub.Tool.Images;
 using RunesmithHub.Tool.Json;
@@ -149,6 +150,13 @@ internal static class Samples
         File.WriteAllBytes(Path.Combine(directory, $"{PluginId}-{version}.source.tar.gz"), Encoding.UTF8.GetBytes($"source {version}"));
         File.WriteAllText(Path.Combine(directory, $"{PluginId}-{version}.cdx.json"),
             """{ "bomFormat": "CycloneDX", "components": [ { "name": "Humanizer.Core", "version": "2.14.1", "purl": "pkg:nuget/Humanizer.Core@2.14.1" } ] }""");
+        return Rehash(directory);
+    }
+
+    /// <summary>Writes the <c>hashes.json</c> of a build output again, after a test changed its files.</summary>
+    public static string Rehash(string directory)
+    {
+        HashList.Create(directory).Write(directory);
         return directory;
     }
 

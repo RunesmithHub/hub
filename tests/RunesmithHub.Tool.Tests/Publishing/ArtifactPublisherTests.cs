@@ -89,7 +89,7 @@ public sealed class ArtifactPublisherTests : IDisposable
 
         var exception = await Assert.ThrowsAsync<ToolException>(PublishAsync);
 
-        Assert.Contains("source archive", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("source.tar.gz does not have the hash the version record lists", exception.Message, StringComparison.Ordinal);
         Assert.Empty(_github.Uploads);
         Assert.Equal(VersionState.Review, record.State);
     }

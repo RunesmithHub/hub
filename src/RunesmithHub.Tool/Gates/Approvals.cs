@@ -44,6 +44,6 @@ internal static partial class Approvals
             .Select(group => group.OrderBy(review => review.SubmittedAt).Last())
             .Any(review => review.State == "CHANGES_REQUESTED" && admins.Contains(review.Author.Id));
 
-    [GeneratedRegex("<!-- hub-approve: ([0-9]+) ([A-Za-z0-9-]+(?:\\[bot\\])?) ([0-9a-f]{40}) -->")]
+    [GeneratedRegex("\\A<!-- hub-approve: ([0-9]+) ([A-Za-z0-9-]+(?:\\[bot\\])?) ([0-9a-f]{40}) -->(?:\\r?\\n|\\z)")]
     private static partial Regex MarkerPattern();
 }

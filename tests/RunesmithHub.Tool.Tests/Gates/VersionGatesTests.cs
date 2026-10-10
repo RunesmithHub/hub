@@ -165,6 +165,16 @@ public sealed class VersionGatesTests : IDisposable
     }
 
     [Fact]
+    public async Task ReviewCountsAnApprovalMarkerOnlyAtTheStartOfTheBotsComment()
+    {
+        var record = await BuildAsync("1.0.0");
+        var inputs = await PullRequestAsync(() => _registry.Version(Samples.PluginId, record));
+        await _github.CommentAsync(HubLocations.Registry, inputs.Pull.Number, "Quoted:\n" + Approvals.Marker(new GitHubAccount { Id = Admin, Login = "admin" }, inputs.Pull.HeadSha), TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(CommitStatusState.Success, (await Gates.ReviewAsync(inputs, TestContext.Current.CancellationToken)).State);
+    }
+
+    [Fact]
     public async Task ReviewFailsAndCarriesTheRejectionWhenAnAdministratorRequestsChanges()
     {
         var record = await BuildAsync("1.0.0");

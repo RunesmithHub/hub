@@ -209,6 +209,15 @@ public sealed class ModerationCommandsTests : IDisposable
         Assert.Contains("Commands:", outcome.Reply, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task LeavesMalformedCommandsFromOthersUnanswered()
+    {
+        var outcome = await RunAsync("/freeze lumen.todo", actor: 5);
+
+        Assert.Null(outcome);
+        Assert.Empty(_github.CommentsOn(Issue));
+    }
+
     private void TrackingIssueWithPullRequest(out PullRequest pull)
     {
         _github.Issues.Add(new Issue(Issue, "lumen.todo 1.0.0", "", true, [HubLabels.Tracking], FakeGitHub.Bot, Samples.Time, null, ""));

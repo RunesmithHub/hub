@@ -23,7 +23,7 @@ internal sealed class ArtifactPublisher(IGitHubReader github, IGitHubWriter bot,
         {
             var folder = Path.Combine(workDirectory, registration.Id, record.Version.ToString());
             await artifacts.DownloadAsync(record.BuildRun, WorkflowArtifacts.Package(registration.Id, record.Version), folder, cancellationToken).ConfigureAwait(false);
-            var output = BuildOutput.Open(folder, registration.Id, record.Version, registry.LimitsOf(registration));
+            var output = BuildOutput.Open(folder, registration.Id, record.Version, registry.LimitsOf(registration), ExpectedHashes.FromRecord(RecordedHashes(record)));
             var mismatches = Mismatches(record, output).ToList();
             if (mismatches.Count > 0)
                 throw new ToolException($"{registration.Id} {record.Version}: the build output does not match the record: {string.Join("; ", mismatches)}.");
@@ -68,6 +68,16 @@ internal sealed class ArtifactPublisher(IGitHubReader github, IGitHubWriter bot,
         where !registry.ActiveModeration.Any(entry => entry.Target.Covers(publisher, registration.Id, record.Version))
         where deployed.PluginRecord(registration.Id)?.Record.FindVersion(record.Version)?.PublishedAt is null
         select (registration, record);
+
+    private static IEnumerable<string?> RecordedHashes(RegistryVersionRecord record)
+    {
+        IEnumerable<string?> files = [record.Package?.Sha256, record.Source?.Sha256, record.Sbom?.Sha256];
+        if (record.Assets is not { } assets)
+            return files;
+        IEnumerable<HostedImage> images = [assets.Icon.Size64, assets.Icon.Size128, assets.Icon.Size256, .. assets.Banner is { } banner ? [banner.Width640, banner.Width1280] : Array.Empty<HostedImage>(),
+            .. assets.Gallery.SelectMany(item => new[] { item.Width640, item.Width1280 })];
+        return [.. files, assets.ContractsPackage.Sha256, .. images.Select(image => image.Sha256)];
+    }
 
     private static IEnumerable<string> Mismatches(RegistryVersionRecord record, BuildOutput output)
     {

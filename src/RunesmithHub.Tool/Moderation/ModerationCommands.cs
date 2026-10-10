@@ -19,22 +19,24 @@ internal sealed class ModerationCommands(IGitHubReader github, IGitHubWriter bot
 {
     public async Task<CommandOutcome?> RunAsync(string comment, long actorId, int issue, RegistryState registry, CancellationToken cancellationToken)
     {
-        AdminCommand? command;
+        AdminCommand? command = null;
+        ToolException? invalid = null;
         try
         {
             command = CommandParser.Parse(comment);
+            if (command is null)
+                return null;
         }
         catch (ToolException exception)
         {
-            return await ReplyAsync(issue, $"{exception.Message}\n\n{CommandParser.Usage}", null, cancellationToken).ConfigureAwait(false);
+            invalid = exception;
         }
-
-        if (command is null)
-            return null;
 
         var admins = await github.GetTeamMemberIdsAsync(HubLocations.Organization, HubLocations.AdminsTeam, cancellationToken).ConfigureAwait(false);
         if (!admins.Contains(actorId))
-            return await ReplyAsync(issue, "Only administrators can use hub commands.", null, cancellationToken).ConfigureAwait(false);
+            return invalid is null ? await ReplyAsync(issue, "Only administrators can use hub commands.", null, cancellationToken).ConfigureAwait(false) : null;
+        if (invalid is not null || command is null)
+            return await ReplyAsync(issue, $"{invalid?.Message}\n\n{CommandParser.Usage}", null, cancellationToken).ConfigureAwait(false);
         var user = await github.GetUserAsync(actorId, cancellationToken).ConfigureAwait(false) ?? throw new ToolException(string.Create(CultureInfo.InvariantCulture, $"User {actorId} does not exist."));
         var actor = new GitHubAccount { Id = user.Id, Login = user.Login };
 

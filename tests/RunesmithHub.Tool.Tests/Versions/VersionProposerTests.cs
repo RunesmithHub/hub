@@ -126,6 +126,7 @@ public sealed class VersionProposerTests : IDisposable
     {
         var inputs = Inputs("1.0.0", [ReviewTriggers.FirstVersion]);
         await File.WriteAllTextAsync(Path.Combine(inputs.OutputDirectory, "lumen.todo-1.0.0.cdx.json"), "{}", TestContext.Current.CancellationToken);
+        Samples.Rehash(inputs.OutputDirectory);
 
         var exception = await Assert.ThrowsAsync<ToolException>(() => CreateAsync(inputs));
 

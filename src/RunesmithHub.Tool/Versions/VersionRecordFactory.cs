@@ -46,7 +46,7 @@ internal static class VersionRecordFactory
         if (!string.Equals(analysis.Id, job.Plugin, StringComparison.Ordinal) || analysis.Package?.Version != version)
             throw new ToolException($"The analysis is of {analysis.Id} {analysis.Package?.Version}, not {job.Plugin} {version}.");
 
-        var output = BuildOutput.Open(outputDirectory, job.Plugin, version, registry.LimitsOf(registration));
+        var output = BuildOutput.Open(outputDirectory, job.Plugin, version, registry.LimitsOf(registration), ExpectedHashes.FromHashList(outputDirectory));
         if (!string.Equals(analysis.Package.Sha256, output.Package.Sha256, StringComparison.Ordinal))
             throw new ToolException($"The analysis is of another build of {job.Plugin} {version}: the package hashes differ.");
         if (!string.Equals(analysis.Sbom?.Sha256, output.Sbom.Sha256, StringComparison.Ordinal))
