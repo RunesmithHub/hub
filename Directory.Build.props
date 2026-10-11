@@ -14,7 +14,7 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/RunesmithHub/hub</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RunesmithHub/hub</RepositoryUrl>
-    <Version>0.1.6</Version>
+    <Version>0.1.7</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
     <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>

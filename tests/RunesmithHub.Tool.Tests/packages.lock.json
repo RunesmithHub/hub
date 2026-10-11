@@ -230,7 +230,7 @@
           "Linguini.Syntax": "[0.10.2, )",
           "Mono.Cecil": "[0.11.6, )",
           "NuGet.Packaging": "[7.9.0, )",
-          "RunesmithHub.Protocol": "[0.1.6, )",
+          "RunesmithHub.Protocol": "[0.1.7, )",
           "SkiaSharp": "[4.153.1, )",
           "SkiaSharp.NativeAssets.Linux.NoDependencies": "[4.153.1, )",
           "System.CommandLine": "[2.0.12, )"
