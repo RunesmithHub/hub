@@ -152,4 +152,55 @@ public sealed class IsolationTests : IDisposable
         Assert.Equal(ProblemCodes.SdkReference, problem.Code);
         Assert.Contains("Runesmith.Sdk 0.1.4, newer than 0.1.2", problem.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void RejectsBuildingAgainstANewerRunesmithTextThanTheApiMinimum()
+    {
+        var package = new TestPackage
+        {
+            ImplementationSource = "namespace Lumen.Todo { public sealed class TodoService { public object Make() => new Runesmith.Text.Buffer(); } }",
+            References = [TextStub("0.2.1")],
+            RunesmithApi = "^0.2.0",
+        };
+
+        var problem = Assert.Single(Check(package));
+
+        Assert.Equal(ProblemCodes.SdkReference, problem.Code);
+        Assert.Contains("Lumen.Todo was built against Runesmith.Text 0.2.1, newer than 0.2.0", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RejectsABundledLibraryBuiltAgainstANewerRunesmithAssemblyThanTheApiMinimum()
+    {
+        var syntax = Compiler.Compile("Lumen.Syntax", "namespace Lumen.Syntax { public static class Parser { public static object Make() => new Runesmith.Text.Buffer(); } }", TextStub("0.2.1"));
+        var package = new TestPackage
+        {
+            ImplementationSource = "namespace Lumen.Todo { public sealed class TodoService { } }",
+            Bundled = [("Lumen.Syntax", syntax, "Lumen.Syntax", "1.0.0")],
+            Locked = [("Lumen.Syntax", "1.0.0", "MIT")],
+            RunesmithApi = "^0.2.0",
+        };
+
+        var problem = Assert.Single(Check(package), problem => problem.Code == ProblemCodes.SdkReference);
+
+        Assert.Contains("Lumen.Syntax was built against Runesmith.Text 0.2.1", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptsBuildingAgainstTheApiMinimum()
+    {
+        var package = new TestPackage
+        {
+            ImplementationSource = "namespace Lumen.Todo { public sealed class TodoService { public object Make() => new Runesmith.Text.Buffer(); } }",
+            References = [TextStub("0.2.0")],
+            RunesmithApi = "^0.2.0",
+        };
+
+        Assert.Empty(Check(package));
+    }
+
+    private static byte[] TextStub(string version) => Compiler.Compile("Runesmith.Text", $$"""
+        [assembly: System.Reflection.AssemblyVersion("{{version}}.0")]
+        namespace Runesmith.Text { public sealed class Buffer { } }
+        """);
 }
