@@ -15,7 +15,7 @@ env:
 jobs:
   packages:
     name: Pack the protocol library and the tool
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -47,7 +47,7 @@ jobs:
   hub-feed:
     name: Push the packages to the hub feed
     needs: packages
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment: hub-feed
     permissions:
