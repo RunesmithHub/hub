@@ -2,7 +2,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
-    <SkiaSharpVersion>4.153.1</SkiaSharpVersion>
+    <SkiaSharpVersion>4.155.0</SkiaSharpVersion>
   </PropertyGroup>
   <ItemGroup Label="Tool">
     <PackageVersion Include="Linguini.Syntax" Version="0.10.2" />
